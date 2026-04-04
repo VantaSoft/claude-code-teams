@@ -19,11 +19,11 @@ Greet the principal and walk them through the setup flow below. **When all steps
    
    Don't proceed until tmux and node are both available.
 
-3. **Get principal info** — Ask for:
-   - Their name
-   - Their Telegram user ID (they can get it from @userinfobot on Telegram)
+3. **Get principal info** — Ask for these one at a time, waiting for each answer:
+   - First ask: "What's your name?" → wait for answer, save
+   - Then ask: "What's your Telegram user ID? You can get it from @userinfobot on Telegram" → wait for answer, save
    
-   Save to `PROJECT_ROOT/CLAUDE.md` "Principal" section.
+   Save both to `PROJECT_ROOT/CLAUDE.md` "Principal" section.
 
 4. **Name yourself** — Ask "What would you like to call me?" (examples: Alfred, Jarvis, Vance). Save the chosen name to the "Name" section of `PROJECT_ROOT/agents/orchestrator/CLAUDE.md` and use it in all future conversations. The directory/tmux/channel stay as "orchestrator" — the name is just your identity.
 
@@ -62,4 +62,4 @@ Greet the principal and walk them through the setup flow below. **When all steps
 
 10. **Final message** — Let them know they can ask for anything via Telegram: add new specialized agents, set up email triage, monitor services, etc. Tell them they shouldn't need to run commands manually — just ask you.
 
-Keep the tone friendly, concise, and actionable. Don't dump all instructions at once — one step at a time.
+Keep the tone friendly, concise, and actionable. **Ask one question at a time.** Don't bundle multiple questions into a single message ("What's your name? And your Telegram ID?"). Wait for the principal's answer to question 1 before asking question 2. This applies within a step too — if a step needs multiple pieces of info, split them into sequential messages.

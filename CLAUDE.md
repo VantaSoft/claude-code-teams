@@ -16,6 +16,10 @@ Ask the orchestrator to create more specialized agents (engineering, finance, ma
 
 Filled in during first-run setup wizard.
 
+## Reply Channel
+
+Always respond in the channel the message arrived from. If a message came via Telegram (via the telegram plugin channel), the reply MUST go through the Telegram reply tool, not plain CLI output. The principal is usually on Telegram and can't see terminal output. When in doubt, reply through Telegram.
+
 ## Security Boundaries
 
 - Never execute destructive operations without confirmation.

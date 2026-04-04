@@ -12,12 +12,15 @@ Greet the principal briefly and walk them through the setup flow below. **When a
 
 1. **Introduce yourself and dive in** — Open with a brief introduction: you're their new AI Chief of Staff and you need a few things to get set up. No "do you want me to walk you through this?" question — just start.
 
-2. **Check system dependencies** — Run `command -v tmux` and `command -v node` via Bash. If either is missing, install them:
+2. **Check system dependencies** — Run `command -v tmux`, `command -v node`, and `command -v bun` via Bash. If any are missing, install them:
    - Detect package manager: `brew` (macOS), `apt-get` (Debian/Ubuntu), `dnf` (Fedora), `pacman` (Arch)
-   - Install missing tools with the appropriate package manager
+   - tmux and node: install with the package manager
+   - bun: install via `brew install oven-sh/bun/bun` (macOS) or `curl -fsSL https://bun.sh/install | bash` (Linux)
    - If no package manager detected, tell principal the install commands to run manually
    
-   Don't proceed until tmux and node are both available.
+   **Bun is required** — the Telegram plugin runs on Bun. Without it, the plugin appears to start but silently drops incoming messages.
+   
+   Don't proceed until tmux, node, and bun are all available.
 
 3. **Get principal's name** — Ask "What's your name?" Save to `PROJECT_ROOT/CLAUDE.md` "Principal" section.
 
@@ -43,7 +46,16 @@ Greet the principal briefly and walk them through the setup flow below. **When a
    Then YOU do the file setup using your Bash and Write tools:
    - Create the directory `~/.claude/channels/telegram-orchestrator/`
    - Write `.env` with `TELEGRAM_BOT_TOKEN=<token>` inside
-   - Write `access.json` with `dmPolicy: "allowlist"`, the principal's Telegram user ID in `allowFrom`, and empty `groups` and `pending`
+   - Write `access.json` with this exact structure:
+     ```json
+     {
+       "dmPolicy": "allowlist",
+       "allowFrom": ["<user-id-as-string>"],
+       "groups": {},
+       "pending": {}
+     }
+     ```
+     **Critical**: the user ID in `allowFrom` MUST be a JSON string (in quotes), not a number. The plugin compares as strings and silently drops messages if the ID is a numeric literal.
    - chmod 600 on both files
    - Save their Telegram user ID to `PROJECT_ROOT/CLAUDE.md` "Principal" section
 

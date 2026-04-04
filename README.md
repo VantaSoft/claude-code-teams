@@ -29,8 +29,10 @@ Ask your orchestrator to set up a nightly `git push` heartbeat task.
 ## Prerequisites
 
 - Claude Code CLI ([anthropic.com/claude-code](https://www.anthropic.com/claude-code))
-- `tmux`, `git`, `node`
+- `git` (already on most Macs/Linux boxes)
 - A Telegram account
+
+The orchestrator will install `tmux` and `node` for you on first launch if they're missing.
 
 ### Where to Run It
 

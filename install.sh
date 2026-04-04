@@ -12,10 +12,8 @@ echo "║       Claude Code Teams — Installer         ║"
 echo "╚══════════════════════════════════════════════╝"
 echo ""
 
-# Check prerequisites
+# Check prerequisites (minimal — orchestrator installs tmux/node on first launch if missing)
 command -v git >/dev/null 2>&1 || { echo "Error: git is required"; exit 1; }
-command -v tmux >/dev/null 2>&1 || { echo "Error: tmux is required"; exit 1; }
-command -v node >/dev/null 2>&1 || { echo "Error: node is required (for MCP servers)"; exit 1; }
 command -v claude >/dev/null 2>&1 || { echo "Error: claude CLI not found. Install from https://www.anthropic.com/claude-code"; exit 1; }
 
 # Safety: refuse to overwrite the specific paths we create

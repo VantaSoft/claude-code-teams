@@ -13,7 +13,7 @@ cd claude-code-teams/agents/orchestrator
 claude --dangerously-skip-permissions
 ```
 
-The installer creates a `claude-code-teams/` folder in your current directory. Then you launch the orchestrator — it will guide you through the rest (Telegram bot, Google OAuth, heartbeat).
+When Claude launches, type **`setup wizard`** to kick it off. The orchestrator will guide you through the rest (Telegram bot, Google OAuth, heartbeat).
 
 ## Prerequisites
 

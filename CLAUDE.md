@@ -53,14 +53,18 @@ cron: "*/30 * * * *"
 **How it works:**
 - An OS-level crontab entry per schedule file types its prompt into the agent's tmux session on the specified cadence
 - The agent reads the file and executes the tasks
-- `<orchestrator>/scripts/sync-schedules.sh` reads all `PROJECT_ROOT/agents/*/schedules/*.md`, extracts cron frontmatter, and writes the crontab MANAGED block
-- Run manually after adding/editing/deleting schedule files
+- `PROJECT_ROOT/agents/orchestrator/scripts/sync-schedules.sh` reads all `PROJECT_ROOT/agents/*/schedules/*.md`, extracts cron frontmatter, and writes the crontab MANAGED block
+- **Only the orchestrator runs sync-schedules.sh** — it's the orchestrator's responsibility. Other agents create their own schedule files and ask the orchestrator to sync.
 
 **Time zone**: crontab runs in system timezone. Document any conversion (e.g. PT → UTC) in a frontmatter comment.
 
-**To add a schedule:**
-1. Create `PROJECT_ROOT/agents/<agent>/schedules/<name>.md` with frontmatter
-2. Run the orchestrator's `scripts/sync-schedules.sh`
+**To add a schedule (as a non-orchestrator agent):**
+1. Create `PROJECT_ROOT/agents/<your-agent>/schedules/<name>.md` with cron frontmatter
+2. Ask the orchestrator to run `sync-schedules.sh`
+
+**To add a schedule (as the orchestrator):**
+1. Create the file
+2. Run `PROJECT_ROOT/agents/orchestrator/scripts/sync-schedules.sh` yourself
 
 ## Agent Folder Structure
 

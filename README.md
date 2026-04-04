@@ -13,7 +13,7 @@ cd claude-code-teams/agents/orchestrator
 claude --dangerously-skip-permissions
 ```
 
-When Claude launches, type **`setup wizard`** to kick it off. The orchestrator will guide you through the rest (Telegram bot, Google OAuth, heartbeat).
+When Claude launches, type **`setup wizard`** to kick it off. The orchestrator will guide you through the rest (Telegram bot, Google OAuth, schedules).
 
 ## Prerequisites
 
@@ -26,7 +26,7 @@ The orchestrator will install `tmux` and `node` for you on first launch if they'
 ### Where to Run It
 
 We recommend a **Mac Mini** (or any always-on home server). A **cloud VM** (EC2, DigitalOcean, etc.) works fine too. The key requirements are:
-- Always-on — agents need to stay running to receive Telegram messages and fire heartbeat tasks
+- Always-on — agents need to stay running to receive Telegram messages and fire scheduled tasks
 - Persistent storage — agent memory, Telegram configs, OAuth tokens live on disk
 - You can SSH in for occasional maintenance
 
@@ -34,7 +34,7 @@ We recommend a **Mac Mini** (or any always-on home server). A **cloud VM** (EC2,
 
 - **Orchestrator agent** — Chief of Staff pattern, reachable via Telegram
 - **Google Workspace MCP server** — Gmail, Calendar, Drive tools (read + write)
-- **Heartbeat system** — Recurring tasks (email triage, briefings, monitoring) via OS crontab
+- **Schedules system** — Per-task .md files with cron frontmatter, synced to OS crontab (email triage, briefings, monitoring)
 - **Telegram integration** — via Claude Code's official Telegram plugin
 - **Scripts** — Create new agents, start/restart existing ones
 
@@ -47,12 +47,13 @@ claude-code-teams/          # The install directory
 │   └── orchestrator/      # Chief of staff (reference agent)
 │       ├── CLAUDE.md
 │       ├── tasks.md
-│       ├── heartbeat.md   # Created when you add recurring tasks
+│       ├── schedules/      # One .md per recurring task, with cron frontmatter
 │       ├── docs/
 │       ├── memory/
 │       ├── scripts/
 │       │   ├── start-agent.sh
-│       │   └── create-agent.sh
+│       │   ├── create-agent.sh
+│       │   └── sync-schedules.sh
 │       └── .claude/
 └── mcp/
     └── google-workspace/  # Gmail, Calendar, Drive MCP server
@@ -76,14 +77,14 @@ You shouldn't need to run scripts manually — the orchestrator handles orchestr
 
 ## Back Up Your Team
 
-Your agent team accumulates state over time: CLAUDE.md files, heartbeat tasks, agent-specific docs, memory files, learned triage rules. **Fork this repo** and push your team's state to your fork regularly for:
+Your agent team accumulates state over time: CLAUDE.md files, schedules, agent-specific docs, memory files, learned triage rules. **Fork this repo** and push your team's state to your fork regularly for:
 
 - **Disaster recovery** if your host crashes
 - **Version history** to see how your agents evolved
 - **Cross-device consistency** to spin up your team on a new host
 - **Upstream updates** to pull template improvements into your fork
 
-Ask your orchestrator to set up a nightly `git push` heartbeat task.
+Ask your orchestrator to set up a nightly `git push` schedule.
 
 ## License
 

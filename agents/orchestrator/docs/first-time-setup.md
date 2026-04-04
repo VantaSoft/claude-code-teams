@@ -50,6 +50,14 @@ On detection, greet the user and offer to walk them through setup.
    - Write `~/.mcp.json` registering the google-workspace server (command: `node`, args: `["$HOME/mcp/google-workspace/dist/index.js"]` with the actual home path)
    - Note that a restart is needed to load MCP tools
 
-8. **Final message** — Let them know they can ask for anything via Telegram: add new specialized agents, set up email triage, monitor services, etc. Tell them they shouldn't need to run commands manually — just ask you.
+8. **Relaunch under tmux with Telegram enabled** — The initial launch was a raw `claude` session without Telegram. To receive Telegram messages and heartbeat prompts, you need to run inside a tmux session named "orchestrator" with the Telegram plugin channel flag.
+
+   Tell the principal to exit this session (Ctrl+C, then `/exit`) and run:
+   ```
+   ~/agents/orchestrator/scripts/start-agent.sh orchestrator
+   ```
+   This starts you in tmux with the Telegram channel enabled. They can then message you on their bot.
+
+9. **Final message** — Let them know they can ask for anything via Telegram: add new specialized agents, set up email triage, monitor services, etc. Tell them they shouldn't need to run commands manually — just ask you.
 
 Keep the tone friendly, concise, and actionable. Don't dump all instructions at once — one step at a time.

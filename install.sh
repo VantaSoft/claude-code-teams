@@ -7,9 +7,13 @@ set -e
 REPO_URL="https://github.com/VantaSoft/claude-code-teams.git"
 BRANCH="main"
 
-echo "╔══════════════════════════════════════════════╗"
-echo "║       Claude Code Teams — Installer         ║"
-echo "╚══════════════════════════════════════════════╝"
+echo ""
+echo "   ╔═══╗  ╔═══╗  ╔═══╗  ╔═══╗"
+echo "   ║◉ ◉║  ║◉ ◉║  ║◉ ◉║  ║◉ ◉║"
+echo "   ║ ▽ ║  ║ ▽ ║  ║ ▽ ║  ║ ▽ ║"
+echo "   ╚╦═╦╝  ╚╦═╦╝  ╚╦═╦╝  ╚╦═╦╝"
+echo ""
+echo "       Claude Code Teams"
 echo ""
 
 # Check prerequisites (minimal — orchestrator installs tmux/node on first launch if missing)

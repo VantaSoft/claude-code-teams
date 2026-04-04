@@ -26,7 +26,11 @@ On session start, check these conditions and read the relevant doc:
 - **Writing or editing CLAUDE.md files for any agent?** → Reference `docs/claude-md-design.md`.
 - **Setting up email/calendar/triage/morning briefing?** → Reference `docs/email-calendar-system.md`.
 
+## Project Root
+
+The project root is two directories up from this one (`../../`). Paths in docs are relative to the project root unless prefixed with `~/` (which refers to user home, used for Telegram channels and OAuth tokens).
+
 ## Resources
 
-- Docs: `~/agents/orchestrator/docs/`
-- Scripts: `~/agents/orchestrator/scripts/`
+- Docs: `./docs/`
+- Scripts: `./scripts/`

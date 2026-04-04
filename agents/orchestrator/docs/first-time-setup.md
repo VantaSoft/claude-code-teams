@@ -1,7 +1,12 @@
 # First-Time Setup Wizard
 
-If this is a fresh install, walk the user through setup step by step. Detect fresh install by checking:
+If this is a fresh install, walk the user through setup step by step.
 
+In this doc:
+- `PROJECT_ROOT` means the installation directory (the one containing CLAUDE.md, agents/, mcp/)
+- `~/` refers to the user's home directory (used for Telegram channel configs and OAuth tokens)
+
+Detect fresh install by checking:
 - `~/.claude/channels/telegram-orchestrator/.env` does not exist → Telegram not configured
 - No crontab entry for `orchestrator` heartbeat → heartbeat not set up
 - The "Name" section in your CLAUDE.md is empty → you haven't been named yet
@@ -23,9 +28,9 @@ On detection, greet the user and offer to walk them through setup.
    - Their name
    - Their Telegram user ID (they can get it from @userinfobot on Telegram)
    
-   Save to `~/CLAUDE.md` "Principal" section.
+   Save to `PROJECT_ROOT/CLAUDE.md` "Principal" section.
 
-4. **Name yourself** — Ask "What would you like to call me?" (examples: Alfred, Jarvis, Vance). Save the chosen name to the "Name" section of `~/agents/orchestrator/CLAUDE.md` and use it in all future conversations. The directory/tmux/channel stay as "orchestrator" — the name is just your identity.
+4. **Name yourself** — Ask "What would you like to call me?" (examples: Alfred, Jarvis, Vance). Save the chosen name to the "Name" section of `PROJECT_ROOT/agents/orchestrator/CLAUDE.md` and use it in all future conversations. The directory/tmux/channel stay as "orchestrator" — the name is just your identity.
 
 5. **Set up Telegram** — Ask the principal to:
    - DM @BotFather on Telegram
@@ -33,28 +38,28 @@ On detection, greet the user and offer to walk them through setup.
    - Send `/setprivacy` → select bot → Disable (for group chat support)
    - Paste the bot token back to you
    
-   Then YOU do the file setup (don't show these commands to the user — use your Bash and Write tools):
+   Then YOU do the file setup using your Bash and Write tools:
    - Create the directory `~/.claude/channels/telegram-orchestrator/`
    - Write `.env` with `TELEGRAM_BOT_TOKEN=<token>` inside
    - Write `access.json` with `dmPolicy: "allowlist"`, the principal's Telegram user ID in `allowFrom`, and empty `groups` and `pending`
    - chmod 600 on both files
 
 6. **Offer heartbeat setup** — Ask if they want recurring tasks (email triage, monitoring, etc.). If yes, YOU do the setup:
-   - Write a starter `~/agents/orchestrator/heartbeat.md` with their desired tasks
-   - Add a crontab entry via `crontab -e` equivalent: `*/30 * * * * /usr/bin/tmux send-keys -t orchestrator 'Read ~/agents/orchestrator/heartbeat.md and execute all tasks defined in it.' Enter`
+   - Write a starter `PROJECT_ROOT/agents/orchestrator/heartbeat.md` with their desired tasks
+   - Add a crontab entry: `*/30 * * * * /usr/bin/tmux send-keys -t orchestrator 'Read PROJECT_ROOT/agents/orchestrator/heartbeat.md and execute all tasks defined in it.' Enter` (use the actual absolute path)
 
 7. **Offer Google Workspace MCP setup** — Ask if they want Gmail/Calendar/Drive access. If yes:
    - Walk them through creating a Google Cloud OAuth client (project, enable APIs, create OAuth client credentials JSON)
-   - YOU build the MCP server: run `cd ~/mcp/google-workspace && npm install && npx tsc` via Bash
+   - YOU build the MCP server: run `cd PROJECT_ROOT/mcp/google-workspace && npm install && npx tsc` via Bash
    - YOU run the OAuth flow for them (generate URL, they paste redirect URL back, you save tokens)
-   - Write `~/.mcp.json` registering the google-workspace server (command: `node`, args: `["$HOME/mcp/google-workspace/dist/index.js"]` with the actual home path)
+   - Write `~/.mcp.json` registering the google-workspace server (command: `node`, args: `["<absolute-path>/mcp/google-workspace/dist/index.js"]`)
    - Note that a restart is needed to load MCP tools
 
 8. **Relaunch under tmux with Telegram enabled** — The initial launch was a raw `claude` session without Telegram. To receive Telegram messages and heartbeat prompts, you need to run inside a tmux session named "orchestrator" with the Telegram plugin channel flag.
 
    Tell the principal to exit this session (Ctrl+C, then `/exit`) and run:
    ```
-   ~/agents/orchestrator/scripts/start-agent.sh orchestrator
+   PROJECT_ROOT/agents/orchestrator/scripts/start-agent.sh orchestrator
    ```
    This starts you in tmux with the Telegram channel enabled. They can then message you on their bot.
 

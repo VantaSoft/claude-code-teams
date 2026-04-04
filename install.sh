@@ -16,46 +16,30 @@ echo ""
 echo "       Claude Code Teams"
 echo ""
 
+INSTALL_DIR="${INSTALL_DIR:-$(pwd)/claude-code-teams}"
+
 # Check prerequisites (minimal — orchestrator installs tmux/node on first launch if missing)
 command -v git >/dev/null 2>&1 || { echo "Error: git is required"; exit 1; }
 command -v claude >/dev/null 2>&1 || { echo "Error: claude CLI not found. Install from https://www.anthropic.com/claude-code"; exit 1; }
 
-# Safety: refuse to overwrite the specific paths we create
-for f in "$HOME/agents/orchestrator" "$HOME/mcp/google-workspace"; do
-  if [ -e "$f" ]; then
-    echo "Error: $f already exists. Aborting to avoid overwriting."
-    echo "If you want to reinstall, back up and remove these paths first."
-    exit 1
-  fi
-done
-
-# Clone into temp dir
-TMP_DIR=$(mktemp -d)
-echo "→ Cloning $REPO_URL..."
-git clone --quiet --depth 1 --branch "$BRANCH" "$REPO_URL" "$TMP_DIR"
-
-# Place files
-echo "→ Installing to \$HOME..."
-mkdir -p "$HOME/agents" "$HOME/mcp"
-
-if [ ! -e "$HOME/CLAUDE.md" ]; then
-  cp "$TMP_DIR/CLAUDE.md" "$HOME/CLAUDE.md"
-else
-  echo "  (skipping ~/CLAUDE.md — already exists)"
+# Safety: refuse to overwrite
+if [ -e "$INSTALL_DIR" ]; then
+  echo "Error: $INSTALL_DIR already exists. Aborting to avoid overwriting."
+  echo "Move or remove it first, or set INSTALL_DIR=/some/other/path"
+  exit 1
 fi
-cp -r "$TMP_DIR/agents/orchestrator" "$HOME/agents/orchestrator"
-cp -r "$TMP_DIR/mcp/google-workspace" "$HOME/mcp/google-workspace"
+
+echo "→ Installing to $INSTALL_DIR..."
+git clone --quiet --depth 1 --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"
+rm -rf "$INSTALL_DIR/.git"
 
 # Make scripts executable
-chmod +x "$HOME/agents/orchestrator/scripts/"*.sh
-
-# Clean up
-rm -rf "$TMP_DIR"
+chmod +x "$INSTALL_DIR/install.sh" "$INSTALL_DIR/agents/orchestrator/scripts/"*.sh 2>/dev/null || true
 
 echo ""
-echo "✓ Installed."
+echo "✓ Installed to $INSTALL_DIR"
 echo ""
 echo "Next step:"
-echo "  cd ~/agents/orchestrator && claude --dangerously-skip-permissions"
+echo "  cd $INSTALL_DIR/agents/orchestrator && claude --dangerously-skip-permissions"
 echo ""
 echo "The orchestrator will guide you through the rest — Telegram bot, Google OAuth, heartbeat."

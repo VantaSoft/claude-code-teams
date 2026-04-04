@@ -2,14 +2,19 @@
 set -e
 
 AGENT_NAME="${1:?Usage: ./create-agent.sh <agent-name>}"
-AGENT_DIR="$HOME/agents/$AGENT_NAME"
+
+# Project root is 3 levels up from this script: scripts/ -> orchestrator/ -> agents/ -> root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+
+AGENT_DIR="$PROJECT_ROOT/agents/$AGENT_NAME"
 
 if [ -d "$AGENT_DIR" ]; then
   echo "Error: Agent directory $AGENT_DIR already exists"
   exit 1
 fi
 
-echo "Creating agent: $AGENT_NAME"
+echo "Creating agent: $AGENT_NAME at $AGENT_DIR"
 
 # Create agent directory structure
 mkdir -p "$AGENT_DIR/memory"
@@ -30,11 +35,11 @@ TODO: Define this agent's scope.
 
 ## Tasks
 
-Track your work in ~/agents/$AGENT_NAME/tasks.md. Use markdown checkboxes (\`- [ ]\` / \`- [x]\`).
+Track your work in ./tasks.md. Use markdown checkboxes (\`- [ ]\` / \`- [x]\`).
 
 ## Resources
 
-- Docs: ~/agents/$AGENT_NAME/docs/
+- Docs: ./docs/
 EOF
 
 # Create empty tasks.md
@@ -49,7 +54,7 @@ EOF
 # Set autoMemoryDirectory and enabled plugins (per-agent, not global)
 cat > "$AGENT_DIR/.claude/settings.local.json" << EOF
 {
-  "autoMemoryDirectory": "~/agents/$AGENT_NAME/memory",
+  "autoMemoryDirectory": "$AGENT_DIR/memory",
   "enabledPlugins": {
     "telegram@claude-plugins-official": true
   }
@@ -66,5 +71,5 @@ echo "  3. Set up Telegram channel:"
 echo "     mkdir -p ~/.claude/channels/telegram-$AGENT_NAME"
 echo "     Create .env with: TELEGRAM_BOT_TOKEN=<your-token>"
 echo "     Create access.json with allowlist (your Telegram user ID)"
-echo "  4. Start with: ~/agents/orchestrator/scripts/start-agent.sh $AGENT_NAME"
-echo "  5. Update Active Agents table in ~/CLAUDE.md"
+echo "  4. Start with: $SCRIPT_DIR/start-agent.sh $AGENT_NAME"
+echo "  5. Update Active Agents table in $PROJECT_ROOT/CLAUDE.md"

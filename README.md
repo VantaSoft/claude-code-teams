@@ -7,12 +7,13 @@ Each agent runs in a tmux session with its own identity, memory, docs, and Teleg
 ## Quick Start
 
 ```bash
+cd ~/repos    # or wherever you want to install
 curl -fsSL https://cct.vantasoft.com/install.sh | bash
-cd ~/agents/orchestrator
+cd claude-code-teams/agents/orchestrator
 claude --dangerously-skip-permissions
 ```
 
-The orchestrator agent will guide you through the rest — Telegram bot setup, Google OAuth (optional), heartbeat configuration.
+The installer creates a `claude-code-teams/` folder in your current directory. The orchestrator agent will guide you through the rest — Telegram bot setup, Google OAuth (optional), heartbeat configuration.
 
 ## Prerequisites
 
@@ -40,9 +41,8 @@ We recommend a **Mac Mini** (or any always-on home server). A **cloud VM** (EC2,
 ## Architecture
 
 ```
-~/
+claude-code-teams/          # The install directory
 ├── CLAUDE.md              # Shared config inherited by all agents
-├── .mcp.json              # MCP server registry (created during setup)
 ├── agents/
 │   └── orchestrator/      # Chief of staff (reference agent)
 │       ├── CLAUDE.md
@@ -56,13 +56,17 @@ We recommend a **Mac Mini** (or any always-on home server). A **cloud VM** (EC2,
 │       └── .claude/
 └── mcp/
     └── google-workspace/  # Gmail, Calendar, Drive MCP server
+
+~/.claude/channels/         # Telegram bot configs (user home)
+~/.config/                  # OAuth tokens, etc. (user home)
+~/.mcp.json                 # MCP server registry (user home, created during setup)
 ```
 
 Each agent:
 - Runs in its own tmux session
 - Has its own Telegram bot
 - Has its own memory folder (persists across conversations)
-- Inherits `~/CLAUDE.md` (shared) + its own `CLAUDE.md` (role-specific)
+- Inherits the project root `CLAUDE.md` (shared) + its own `CLAUDE.md` (role-specific)
 
 ## Adding More Agents
 

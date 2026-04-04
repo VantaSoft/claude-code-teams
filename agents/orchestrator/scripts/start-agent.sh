@@ -2,7 +2,12 @@
 set -e
 
 AGENT_NAME="${1:?Usage: ./start-agent.sh <agent-name>}"
-AGENT_DIR="$HOME/agents/$AGENT_NAME"
+
+# Project root is 3 levels up from this script: scripts/ -> orchestrator/ -> agents/ -> root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+
+AGENT_DIR="$PROJECT_ROOT/agents/$AGENT_NAME"
 TELEGRAM_STATE="$HOME/.claude/channels/telegram-$AGENT_NAME"
 
 if [ ! -d "$AGENT_DIR" ]; then

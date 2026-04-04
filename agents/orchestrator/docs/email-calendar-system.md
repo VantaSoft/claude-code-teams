@@ -8,7 +8,7 @@ The Google Workspace MCP server supports multiple accounts. Each account has its
 
 Add a new account by running:
 ```bash
-cd ~/mcp/google-workspace
+cd PROJECT_ROOT/mcp/google-workspace
 node dist/setup.js <account-name>
 ```
 

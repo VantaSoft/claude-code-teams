@@ -2,11 +2,13 @@
 
 This file is inherited by all agents via Claude Code's CLAUDE.md directory traversal. It defines the standard patterns for running a team of Claude Code agents.
 
+In docs, `PROJECT_ROOT` refers to the directory containing this file (the installation directory). User-level config (Telegram channels, OAuth tokens) lives in `~/.claude/` and `~/.config/`.
+
 ## Active Agents
 
 | Agent | Role | Directory | tmux Session |
 |-------|------|-----------|-------------|
-| Orchestrator | Chief of Staff / coordinator | ~/agents/orchestrator | orchestrator |
+| Orchestrator | Chief of Staff / coordinator | PROJECT_ROOT/agents/orchestrator | orchestrator |
 
 Ask the orchestrator to create more specialized agents (engineering, finance, marketing, personal assistant, etc.).
 
@@ -30,17 +32,17 @@ How it works:
 - Survives host restarts, session restarts, and Claude Code's 7-day cron expiry
 
 To add a heartbeat for an agent:
-1. Create `~/agents/<agent>/heartbeat.md` with task instructions
-2. Add to crontab: `*/30 * * * * /usr/bin/tmux send-keys -t <agent> 'Read ~/agents/<agent>/heartbeat.md and execute all tasks defined in it.' Enter`
+1. Create `PROJECT_ROOT/agents/<agent>/heartbeat.md` with task instructions
+2. Add to crontab: `*/30 * * * * /usr/bin/tmux send-keys -t <agent> 'Read <absolute-path>/agents/<agent>/heartbeat.md and execute all tasks defined in it.' Enter`
 
 To add/remove tasks: edit heartbeat.md. No restart needed.
 
 ## Agent Folder Structure
 
-Each agent lives in `~/agents/<agent-name>/` with this standard layout:
+Each agent lives in `PROJECT_ROOT/agents/<agent-name>/` with this standard layout:
 
 ```
-~/agents/<agent-name>/
+PROJECT_ROOT/agents/<agent-name>/
 ├── CLAUDE.md          # Agent identity, scope, and security boundaries
 ├── tasks.md           # Current work tracked with markdown checkboxes
 ├── heartbeat.md       # (optional) Recurring tasks executed via crontab
@@ -52,12 +54,13 @@ Each agent lives in `~/agents/<agent-name>/` with this standard layout:
 └── .claude/           # Claude Code local settings
 ```
 
-All agents inherit `~/CLAUDE.md` (this file) via directory traversal. Agent-specific `CLAUDE.md` lives in each agent's folder.
+All agents inherit `PROJECT_ROOT/CLAUDE.md` (this file) via directory traversal. Agent-specific `CLAUDE.md` lives in each agent's folder.
 
 ## Plugins / Skills
 
-Plugins are configured per-agent in `~/agents/<agent-name>/.claude/settings.local.json`, not globally. To install a plugin for just one agent, run `/plugin install <name>` from within that agent's directory — Claude Code writes to the local settings.local.json automatically.
+Plugins are configured per-agent in `PROJECT_ROOT/agents/<agent-name>/.claude/settings.local.json`, not globally. To install a plugin for just one agent, run `/plugin install <name>` from within that agent's directory — Claude Code writes to the local settings.local.json automatically.
 
 ## Shared Resources
 
-- MCP servers: `~/mcp/`
+- MCP servers: `PROJECT_ROOT/mcp/`
+- User-level config (Telegram channels, OAuth tokens): `~/.claude/channels/`, `~/.config/`

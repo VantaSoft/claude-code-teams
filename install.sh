@@ -47,20 +47,6 @@ cp -r "$TMP_DIR/mcp/google-workspace" "$HOME/mcp/google-workspace"
 # Make scripts executable
 chmod +x "$HOME/agents/orchestrator/scripts/"*.sh
 
-# Create ~/.mcp.json with the Google Workspace server pre-configured
-if [ ! -e "$HOME/.mcp.json" ]; then
-  cat > "$HOME/.mcp.json" <<EOF
-{
-  "mcpServers": {
-    "google-workspace": {
-      "command": "node",
-      "args": ["$HOME/mcp/google-workspace/dist/index.js"]
-    }
-  }
-}
-EOF
-fi
-
 # Clean up
 rm -rf "$TMP_DIR"
 

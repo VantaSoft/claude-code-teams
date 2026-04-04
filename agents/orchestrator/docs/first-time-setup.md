@@ -40,7 +40,8 @@ On detection, greet the user and offer to walk them through setup.
    - Walk them through creating a Google Cloud OAuth client (project, enable APIs, create OAuth client credentials JSON)
    - YOU build the MCP server: run `cd ~/mcp/google-workspace && npm install && npx tsc` via Bash
    - YOU run the OAuth flow for them (generate URL, they paste redirect URL back, you save tokens)
-   - ~/.mcp.json is already set up by the installer — just note that a restart is needed to load MCP tools
+   - Write `~/.mcp.json` registering the google-workspace server (command: `node`, args: `["$HOME/mcp/google-workspace/dist/index.js"]` with the actual home path)
+   - Note that a restart is needed to load MCP tools
 
 7. **Final message** — Let them know they can ask for anything via Telegram: add new specialized agents, set up email triage, monitor services, etc. Tell them they shouldn't need to run commands manually — just ask you.
 

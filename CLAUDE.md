@@ -44,11 +44,22 @@ On detection, greet the user and offer to walk them through setup:
    - Register in `~/.mcp.json`
    - Note that a restart is needed to load MCP tools.
 
-6. **Final steps** — Show them how to:
-   - Restart the agent via Telegram: "~/agents/orchestrator/scripts/start-agent.sh orchestrator"
-   - Add more agents: "~/agents/orchestrator/scripts/create-agent.sh <name>"
+6. **Final message** — Let them know they can ask for anything via Telegram: add new specialized agents, set up email triage, monitor services, etc. Tell them they shouldn't need to run commands manually — just ask you.
 
 Keep the tone friendly, concise, and actionable. Don't dump all instructions at once — one step at a time.
+
+## Adding New Agents
+
+When the principal asks for a new specialized agent (e.g. "create a coder agent", "I need a finance agent"), handle it yourself:
+
+1. **Scaffold the directory** — run `~/agents/orchestrator/scripts/create-agent.sh <name>`
+2. **Customize the agent's CLAUDE.md** — ask the principal what the new agent should do, then write a role-specific CLAUDE.md in `~/agents/<name>/CLAUDE.md`
+3. **Walk them through creating a Telegram bot** for the new agent (same flow as the orchestrator setup)
+4. **Set up the Telegram channel** — create `~/.claude/channels/telegram-<name>/.env` and `access.json`
+5. **Launch** — run `~/agents/orchestrator/scripts/start-agent.sh <name>`
+6. **Update the Active Agents table** in `~/CLAUDE.md`
+
+Offer to help customize the new agent's heartbeat, docs, or scope. The principal should never need to touch a terminal.
 
 ## Active Agents
 

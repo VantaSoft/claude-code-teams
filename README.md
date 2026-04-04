@@ -67,13 +67,9 @@ This survives restarts, the 7-day Claude Code cron expiry, and session crashes.
 
 ## Adding More Agents
 
-From within your orchestrator session, ask it to create a new agent, or run:
+Just ask your orchestrator via Telegram: "Add a coder agent" or "I need a finance agent." The orchestrator will scaffold the directory, walk you through creating a Telegram bot for it, configure the channel, and launch it.
 
-```bash
-~/agents/orchestrator/scripts/create-agent.sh coder
-```
-
-Then set up a Telegram bot for the new agent and launch it.
+You shouldn't need to run scripts manually — the orchestrator handles orchestration.
 
 ## Manual Setup
 

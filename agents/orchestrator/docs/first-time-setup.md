@@ -23,9 +23,15 @@ Greet the principal briefly and walk them through the setup flow below. **When a
 
 4. **Name yourself** — Ask "What would you like to call me?" (examples: Alfred, Jarvis, Vance). Save the chosen name to the "Name" section of `PROJECT_ROOT/agents/orchestrator/CLAUDE.md` and use it in all future conversations. The directory/tmux/channel stay as "orchestrator" — the name is just your identity.
 
-5. **Set up Telegram** — First, give the principal a heads-up: "We'll set up your Telegram bot now. This current session won't be able to receive Telegram messages — after we're done, you'll exit this session and relaunch me under tmux with the Telegram channel connected."
+5. **Install the Telegram plugin** — The Telegram plugin needs to be installed before you can run under tmux with the Telegram channel. Run via Bash:
+   ```bash
+   claude plugin install telegram@claude-plugins-official
+   ```
+   (If this fails or the command doesn't exist, tell the principal and ask them to run `/plugin install telegram@claude-plugins-official` themselves.)
+
+6. **Set up the Telegram bot** — Give the principal a heads-up: "We'll set up your Telegram bot now. After this, I'll relaunch myself under tmux with the Telegram channel connected, then you can message me via Telegram."
    
-   Then ask them to:
+   Ask them to:
    - DM @BotFather on Telegram
    - Send `/newbot`, name it (e.g. "My Orchestrator Bot")
    - Send `/setprivacy` → select bot → Disable (for group chat support)
@@ -40,16 +46,16 @@ Greet the principal briefly and walk them through the setup flow below. **When a
    - chmod 600 on both files
    - Save their Telegram user ID to `PROJECT_ROOT/CLAUDE.md` "Principal" section
 
-6. **Relaunch under tmux with Telegram enabled** — The initial launch was a raw `claude` session without Telegram. To receive Telegram messages, you need to run inside a tmux session with the Telegram plugin channel flag.
-
-   Tell the principal to exit this session (Ctrl+C, then `/exit`) and run:
-   ```
-   PROJECT_ROOT/agents/orchestrator/scripts/start-agent.sh orchestrator
-   ```
-   This starts you in tmux with the Telegram channel enabled. They can then message you on their bot.
-
 7. **Mark setup complete** — Delete the "Setup Required" section from `PROJECT_ROOT/agents/orchestrator/CLAUDE.md` so you don't re-trigger the wizard on future sessions.
 
-8. **Final message** — Let them know they can ask for anything via Telegram: add new specialized agents, set up email triage, monitor services, etc. Tell them they shouldn't need to run commands manually — just ask you.
+8. **Relaunch under tmux** — Tell the principal "I'm going to relaunch myself under tmux now. This session will end; I'll come back in a new session with Telegram connected. Message me on your new bot once I'm up."
+   
+   Then run via Bash:
+   ```bash
+   PROJECT_ROOT/agents/orchestrator/scripts/start-agent.sh orchestrator
+   ```
+   (Use the actual absolute path.) This starts a new tmux session with the Telegram channel enabled. This current (raw) session will terminate shortly after.
+
+9. **Final message** — Before the session ends, tell them to message you on Telegram. Once they do, you'll have full context and can handle future requests (adding new agents, setting up email triage, monitoring services, etc.) without them needing to run commands manually.
 
 Keep the tone friendly, concise, and actionable. **Ask one question at a time.** Don't bundle multiple questions into a single message. Wait for the principal's answer before asking the next question.

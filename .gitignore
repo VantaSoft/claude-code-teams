@@ -1,0 +1,18 @@
+# Build artifacts
+node_modules/
+dist/
+
+# Claude Code local state (not shared across installs)
+.claude/scheduled_tasks.json
+.claude/scheduled_tasks.lock
+
+# Agent memory (personal to each deployment)
+agents/*/memory/*
+!agents/*/memory/MEMORY.md
+
+# Per-install settings that might contain secrets
+.claude/channels/
+*.env
+
+# OS junk
+.DS_Store

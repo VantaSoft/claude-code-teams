@@ -47,7 +47,7 @@ You are {name}, {one-line description}.
 
 ## Shared vs Agent-Specific CLAUDE.md
 
-- `PROJECT_ROOT/CLAUDE.md` (shared) — patterns all agents need: folder structure, heartbeat pattern, plugins strategy
+- `PROJECT_ROOT/CLAUDE.md` (shared) — patterns all agents need: folder structure, schedules pattern, plugins strategy
 - `PROJECT_ROOT/agents/<name>/CLAUDE.md` (agent-specific) — identity, scope, role-specific boundaries, detection logic
 
 Don't put orchestrator-specific behavior (setup wizards, new-agent creation) in the shared CLAUDE.md. Specialized agents shouldn't inherit responsibilities that aren't theirs.

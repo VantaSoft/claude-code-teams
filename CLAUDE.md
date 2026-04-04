@@ -25,21 +25,38 @@ Always respond in the channel the message arrived from. If a message came via Te
 - Never execute destructive operations without confirmation.
 - Never share credentials, tokens, or secrets via Telegram.
 
-## Heartbeat — Recurring Tasks
+## Schedules — Recurring Tasks
 
-The heartbeat is how agents run recurring tasks (monitoring, scheduled reports, email triage, etc.). All recurring work goes in `heartbeat.md` — never use ad-hoc loops or CronCreate inside the session.
+Each agent can have a `schedules/` folder containing one `.md` file per recurring task. Each file declares its own cron expression via YAML frontmatter. Never use ad-hoc `/loop` or CronCreate inside the session for recurring tasks.
 
-How it works:
-- Each agent with recurring tasks has a `heartbeat.md` in its directory
-- An **OS-level crontab entry** (one per agent) types the heartbeat prompt into the agent's tmux session every 30 minutes
-- The agent reads heartbeat.md and executes the tasks
-- Survives host restarts, session restarts, and Claude Code's 7-day cron expiry
+```
+PROJECT_ROOT/agents/<agent>/schedules/
+├── spam-triage.md       # cron: */30 * * * *
+├── morning-briefing.md  # cron: 0 14 * * *   (e.g. 7am PDT)
+└── git-backup.md        # cron: 0 8 * * *    (e.g. 1am PDT)
+```
 
-To add a heartbeat for an agent:
-1. Create `PROJECT_ROOT/agents/<agent>/heartbeat.md` with task instructions
-2. Add to crontab: `*/30 * * * * /usr/bin/tmux send-keys -t <agent> 'Read <absolute-path>/agents/<agent>/heartbeat.md and execute all tasks defined in it.' Enter`
+**Schedule file format:**
+```markdown
+---
+cron: "*/30 * * * *"
+---
+# Task Title
 
-To add/remove tasks: edit heartbeat.md. No restart needed.
+...task instructions...
+```
+
+**How it works:**
+- An OS-level crontab entry per schedule file types its prompt into the agent's tmux session on the specified cadence
+- The agent reads the file and executes the tasks
+- `<orchestrator>/scripts/sync-schedules.sh` reads all `PROJECT_ROOT/agents/*/schedules/*.md`, extracts cron frontmatter, and writes the crontab MANAGED block
+- Run manually after adding/editing/deleting schedule files
+
+**Time zone**: crontab runs in system timezone. Document any conversion (e.g. PT → UTC) in a frontmatter comment.
+
+**To add a schedule:**
+1. Create `PROJECT_ROOT/agents/<agent>/schedules/<name>.md` with frontmatter
+2. Run the orchestrator's `scripts/sync-schedules.sh`
 
 ## Agent Folder Structure
 
@@ -49,7 +66,7 @@ Each agent lives in `PROJECT_ROOT/agents/<agent-name>/` with this standard layou
 PROJECT_ROOT/agents/<agent-name>/
 ├── CLAUDE.md          # Agent identity, scope, and security boundaries
 ├── tasks.md           # Current work tracked with markdown checkboxes
-├── heartbeat.md       # (optional) Recurring tasks executed via crontab
+├── schedules/         # (optional) One .md per recurring task, each with cron frontmatter
 ├── docs/              # Agent-owned documentation
 ├── memory/            # Auto-memory (persists across conversations)
 │   └── MEMORY.md      # Memory index

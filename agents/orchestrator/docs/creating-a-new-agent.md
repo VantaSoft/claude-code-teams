@@ -62,7 +62,7 @@ In this doc:
 
 8. **Update the Active Agents table** in `PROJECT_ROOT/CLAUDE.md` with the new agent's name, role, directory, and tmux session.
 
-9. **Offer follow-up** — Ask if they want to customize the agent's heartbeat, docs, or add specific tools/MCP servers.
+9. **Offer follow-up** — Ask if they want to customize the agent's schedules, docs, or add specific tools/MCP servers.
 
 ## Tips
 

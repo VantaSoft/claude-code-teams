@@ -34,8 +34,9 @@ Greet the principal briefly and walk them through the setup flow below. **When a
    Ask them to:
    - DM @BotFather on Telegram
    - Send `/newbot`, name it (e.g. "My Orchestrator Bot")
-   - Send `/setprivacy` → select bot → Disable (for group chat support)
    - Paste the bot token back to you
+   
+   (Skip `/setprivacy` for now — that's only needed for group chats. Can be added later.)
    
    After they paste the token, ask "What's your Telegram user ID? You can get it by DMing @userinfobot on Telegram."
    

@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "google-workspace": {
-      "command": "node",
-      "args": ["/home/YOUR_USER/mcp/google-workspace/dist/index.js"]
-    }
-  }
-}

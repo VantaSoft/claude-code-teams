@@ -46,10 +46,13 @@ EOF
 cat > "$AGENT_DIR/memory/MEMORY.md" << EOF
 EOF
 
-# Set autoMemoryDirectory to agent-local path
+# Set autoMemoryDirectory and enabled plugins (per-agent, not global)
 cat > "$AGENT_DIR/.claude/settings.local.json" << EOF
 {
-  "autoMemoryDirectory": "~/agents/$AGENT_NAME/memory"
+  "autoMemoryDirectory": "~/agents/$AGENT_NAME/memory",
+  "enabledPlugins": {
+    "telegram@claude-plugins-official": true
+  }
 }
 EOF
 

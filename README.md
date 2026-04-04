@@ -24,7 +24,7 @@ This gives you:
 - **Cross-device consistency** — spin up your team on a new host by cloning your fork
 - **Upstream updates** — pull new template improvements from this repo into your fork
 
-Add a heartbeat task that runs `git push` nightly (see `agents/orchestrator/docs/disaster-recovery.md` for patterns).
+Ask your orchestrator to set up a nightly `git push` heartbeat task.
 
 ## Prerequisites
 
@@ -36,9 +36,9 @@ Add a heartbeat task that runs `git push` nightly (see `agents/orchestrator/docs
 
 - **Orchestrator agent** — Chief of Staff pattern, reachable via Telegram
 - **Google Workspace MCP server** — Gmail, Calendar, Drive tools (read + write)
-- **Heartbeat system** — Recurring tasks via OS crontab
+- **Heartbeat system** — Recurring tasks (email triage, briefings, monitoring) via OS crontab
+- **Telegram integration** — via Claude Code's official Telegram plugin
 - **Scripts** — Create new agents, start/restart existing ones
-- **Telegram integration** via Claude Code's official Telegram plugin
 
 ## Architecture
 
@@ -66,16 +66,6 @@ Each agent:
 - Has its own Telegram bot
 - Has its own memory folder (persists across conversations)
 - Inherits `~/CLAUDE.md` (shared) + its own `CLAUDE.md` (role-specific)
-
-## Heartbeat — Recurring Tasks
-
-Each agent can have a `heartbeat.md` with recurring tasks. An OS-level crontab entry types the heartbeat prompt into the agent's tmux session every 30 minutes:
-
-```
-*/30 * * * * /usr/bin/tmux send-keys -t orchestrator 'Read ~/agents/orchestrator/heartbeat.md and execute all tasks defined in it.' Enter
-```
-
-This survives restarts, the 7-day Claude Code cron expiry, and session crashes.
 
 ## Adding More Agents
 

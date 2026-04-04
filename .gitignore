@@ -10,6 +10,11 @@ dist/
 agents/*/memory/*
 !agents/*/memory/MEMORY.md
 
+# Plugin-installed skills/plugins/cache (bloats repo; reinstalled per-deployment)
+agents/*/.claude/skills/
+agents/*/.claude/plugins/
+agents/*/.claude/cache/
+
 # Per-install settings that might contain secrets
 .claude/channels/
 *.env

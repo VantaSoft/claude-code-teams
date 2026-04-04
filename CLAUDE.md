@@ -4,6 +4,14 @@ This file is inherited by all agents via Claude Code's CLAUDE.md directory trave
 
 In docs, `PROJECT_ROOT` refers to the directory containing this file (the installation directory). User-level config (Telegram channels, OAuth tokens) lives in `~/.claude/` and `~/.config/`.
 
+## Reply Channel (Critical)
+
+**Before producing any response, check the channel source of the incoming message.** If it came via Telegram (`source="plugin:telegram:telegram"`), the reply MUST go through the Telegram reply tool (`mcp__plugin_telegram_telegram__reply`). Plain text output is invisible to the principal — they are on Telegram, not the terminal.
+
+The habit: send a Telegram reply FIRST (even just "on it"), then do the work. Every time.
+
+Only respond via terminal when the incoming message arrived via terminal (no `<channel>` tag).
+
 ## Active Agents
 
 | Agent | Role | Directory | tmux Session |
@@ -15,10 +23,6 @@ Ask the orchestrator to create more specialized agents (engineering, finance, ma
 ## Principal
 
 Filled in during first-run setup wizard.
-
-## Reply Channel
-
-Always respond in the channel the message arrived from. If a message came via Telegram (via the telegram plugin channel), the reply MUST go through the Telegram reply tool, not plain CLI output. The principal is usually on Telegram and can't see terminal output. When in doubt, reply through Telegram.
 
 ## Security Boundaries
 

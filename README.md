@@ -32,6 +32,13 @@ Ask your orchestrator to set up a nightly `git push` heartbeat task.
 - `tmux`, `git`, `node`
 - A Telegram account
 
+### Where to Run It
+
+We recommend a **Mac Mini** (or any always-on home server). A **cloud VM** (EC2, DigitalOcean, etc.) works fine too. The key requirements are:
+- Always-on — agents need to stay running to receive Telegram messages and fire heartbeat tasks
+- Persistent storage — agent memory, Telegram configs, OAuth tokens live on disk
+- You can SSH in for occasional maintenance
+
 ## What You Get
 
 - **Orchestrator agent** — Chief of Staff pattern, reachable via Telegram

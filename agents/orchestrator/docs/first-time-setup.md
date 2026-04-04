@@ -1,17 +1,12 @@
 # First-Time Setup Wizard
 
-If this is a fresh install, walk the user through setup step by step.
+You're reading this because your CLAUDE.md has a "Setup Required" section — that's the signal that first-run setup hasn't completed yet.
 
 In this doc:
 - `PROJECT_ROOT` means the installation directory (the one containing CLAUDE.md, agents/, mcp/)
 - `~/` refers to the user's home directory (used for Telegram channel configs and OAuth tokens)
 
-Detect fresh install by checking:
-- `~/.claude/channels/telegram-orchestrator/.env` does not exist → Telegram not configured
-- No crontab entry for `orchestrator` heartbeat → heartbeat not set up
-- The "Name" section in your CLAUDE.md is empty → you haven't been named yet
-
-On detection, greet the user and offer to walk them through setup.
+Greet the principal and walk them through the setup flow below. **When all steps are complete, delete the "Setup Required" section from your own CLAUDE.md.**
 
 ## Setup Flow
 
@@ -63,6 +58,8 @@ On detection, greet the user and offer to walk them through setup.
    ```
    This starts you in tmux with the Telegram channel enabled. They can then message you on their bot.
 
-9. **Final message** — Let them know they can ask for anything via Telegram: add new specialized agents, set up email triage, monitor services, etc. Tell them they shouldn't need to run commands manually — just ask you.
+9. **Mark setup complete** — Delete the "Setup Required" section from `PROJECT_ROOT/agents/orchestrator/CLAUDE.md` so you don't re-trigger the wizard on future sessions.
+
+10. **Final message** — Let them know they can ask for anything via Telegram: add new specialized agents, set up email triage, monitor services, etc. Tell them they shouldn't need to run commands manually — just ask you.
 
 Keep the tone friendly, concise, and actionable. Don't dump all instructions at once — one step at a time.

@@ -8,10 +8,9 @@ REPO_URL="https://github.com/VantaSoft/claude-code-teams.git"
 BRANCH="main"
 
 echo ""
-echo "   ╔═══╗  ╔═══╗  ╔═══╗  ╔═══╗"
-echo "   ║◉ ◉║  ║◉ ◉║  ║◉ ◉║  ║◉ ◉║"
-echo "   ║ ▽ ║  ║ ▽ ║  ║ ▽ ║  ║ ▽ ║"
-echo "   ╚╦═╦╝  ╚╦═╦╝  ╚╦═╦╝  ╚╦═╦╝"
+echo "    ┌┬┐    ┌┬┐    ┌┬┐    ┌┬┐"
+echo "   [•_•]  [•_•]  [•_•]  [•_•]"
+echo "    /|\\    /|\\    /|\\    /|\\ "
 echo ""
 echo "       Claude Code Teams"
 echo ""
@@ -39,7 +38,10 @@ chmod +x "$INSTALL_DIR/install.sh" "$INSTALL_DIR/agents/orchestrator/scripts/"*.
 echo ""
 echo "✓ Installed to $INSTALL_DIR"
 echo ""
-echo "Next step:"
-echo "  cd $INSTALL_DIR/agents/orchestrator && claude --dangerously-skip-permissions"
+echo "Launching orchestrator..."
 echo ""
-echo "The orchestrator will guide you through the rest — Telegram bot, Google OAuth, heartbeat."
+
+# Launch claude in the orchestrator directory. Redirect stdin from TTY so it
+# works even when install.sh is piped from curl.
+cd "$INSTALL_DIR/agents/orchestrator"
+exec claude --dangerously-skip-permissions < /dev/tty

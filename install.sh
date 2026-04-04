@@ -38,10 +38,8 @@ chmod +x "$INSTALL_DIR/install.sh" "$INSTALL_DIR/agents/orchestrator/scripts/"*.
 echo ""
 echo "✓ Installed to $INSTALL_DIR"
 echo ""
-echo "Launching orchestrator..."
+echo "To launch your orchestrator, run:"
 echo ""
-
-# Launch claude in the orchestrator directory. Redirect stdin from TTY so it
-# works even when install.sh is piped from curl.
-cd "$INSTALL_DIR/agents/orchestrator"
-exec claude --dangerously-skip-permissions < /dev/tty
+echo "  cd $INSTALL_DIR/agents/orchestrator && claude --dangerously-skip-permissions"
+echo ""
+echo "The orchestrator will guide you through the rest — Telegram bot, Google OAuth, heartbeat."

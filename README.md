@@ -9,9 +9,11 @@ Each agent runs in a tmux session with its own identity, memory, docs, and Teleg
 ```bash
 cd ~    # or wherever you want to install
 curl -fsSL https://cct.vantasoft.com/install.sh | bash
+cd claude-code-teams/agents/orchestrator
+claude --dangerously-skip-permissions
 ```
 
-The installer creates a `claude-code-teams/` folder in your current directory, then launches the orchestrator agent. The orchestrator will guide you through the rest — Telegram bot setup, Google OAuth (optional), heartbeat configuration.
+The installer creates a `claude-code-teams/` folder in your current directory. Then you launch the orchestrator — it will guide you through the rest (Telegram bot, Google OAuth, heartbeat).
 
 ## Prerequisites
 

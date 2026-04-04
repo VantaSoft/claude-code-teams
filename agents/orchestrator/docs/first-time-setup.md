@@ -67,7 +67,13 @@ Greet the principal briefly and walk them through the setup flow below. **When a
    ```bash
    PROJECT_ROOT/agents/orchestrator/scripts/start-agent.sh orchestrator
    ```
-   (Use the actual absolute path.) This starts a new tmux session with the Telegram channel enabled. This current (raw) session will terminate shortly after.
+   (Use the actual absolute path.) This starts a new tmux session with the Telegram channel enabled.
+   
+   **After launching, send Enter to the new tmux session to confirm the directory trust prompt**:
+   ```bash
+   tmux send-keys -t orchestrator Enter
+   ```
+   Without this, the new session is stuck waiting on a Claude Code trust prompt and Telegram messages won't be processed. This current (raw) session will terminate shortly after.
 
 9. **Final message** — Before the session ends, tell them to message you on Telegram. Once they do, you'll have full context and can handle future requests (adding new agents, setting up email triage, monitoring services, etc.) without them needing to run commands manually.
 

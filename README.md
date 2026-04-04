@@ -14,18 +14,6 @@ claude --dangerously-skip-permissions
 
 The orchestrator agent will guide you through the rest — Telegram bot setup, Google OAuth (optional), heartbeat configuration.
 
-## Recommended: Fork This Repo & Back Up Your Team
-
-Your agent team will accumulate significant state over time: custom CLAUDE.md files, heartbeat tasks, agent-specific docs, memory files, learned rules for email triage, and more. **Fork this repo to your own GitHub account or organization**, then push your team's state to your fork regularly.
-
-This gives you:
-- **Disaster recovery** — if your host crashes or you need to migrate, your team's state is safe on GitHub
-- **Version history** — see how your agents evolved, roll back changes
-- **Cross-device consistency** — spin up your team on a new host by cloning your fork
-- **Upstream updates** — pull new template improvements from this repo into your fork
-
-Ask your orchestrator to set up a nightly `git push` heartbeat task.
-
 ## Prerequisites
 
 - Claude Code CLI ([anthropic.com/claude-code](https://www.anthropic.com/claude-code))
@@ -81,6 +69,17 @@ Each agent:
 Just ask your orchestrator via Telegram: "Add a coder agent" or "I need a finance agent." The orchestrator will scaffold the directory, walk you through creating a Telegram bot for it, configure the channel, and launch it.
 
 You shouldn't need to run scripts manually — the orchestrator handles orchestration.
+
+## Back Up Your Team
+
+Your agent team accumulates state over time: CLAUDE.md files, heartbeat tasks, agent-specific docs, memory files, learned triage rules. **Fork this repo** and push your team's state to your fork regularly for:
+
+- **Disaster recovery** if your host crashes
+- **Version history** to see how your agents evolved
+- **Cross-device consistency** to spin up your team on a new host
+- **Upstream updates** to pull template improvements into your fork
+
+Ask your orchestrator to set up a nightly `git push` heartbeat task.
 
 ## License
 

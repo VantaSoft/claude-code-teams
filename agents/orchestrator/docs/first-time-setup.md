@@ -19,11 +19,13 @@ Greet the principal briefly and walk them through the setup flow below. **When a
    
    Don't proceed until tmux and node are both available.
 
-3. **Name yourself** — Ask "What would you like to call me?" (examples: Alfred, Jarvis, Vance). Save the chosen name to the "Name" section of `PROJECT_ROOT/agents/orchestrator/CLAUDE.md` and use it in all future conversations. The directory/tmux/channel stay as "orchestrator" — the name is just your identity.
+3. **Get principal's name** — Ask "What's your name?" Save to `PROJECT_ROOT/CLAUDE.md` "Principal" section.
 
-4. **Get principal's name** — Ask "What's your name?" Save to `PROJECT_ROOT/CLAUDE.md` "Principal" section.
+4. **Name yourself** — Ask "What would you like to call me?" (examples: Alfred, Jarvis, Vance). Save the chosen name to the "Name" section of `PROJECT_ROOT/agents/orchestrator/CLAUDE.md` and use it in all future conversations. The directory/tmux/channel stay as "orchestrator" — the name is just your identity.
 
-5. **Set up Telegram** — Ask the principal to:
+5. **Set up Telegram** — First, give the principal a heads-up: "We'll set up your Telegram bot now. This current session won't be able to receive Telegram messages — after we're done, you'll exit this session and relaunch me under tmux with the Telegram channel connected."
+   
+   Then ask them to:
    - DM @BotFather on Telegram
    - Send `/newbot`, name it (e.g. "My Orchestrator Bot")
    - Send `/setprivacy` → select bot → Disable (for group chat support)

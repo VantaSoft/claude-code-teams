@@ -71,10 +71,6 @@ Just ask your orchestrator via Telegram: "Add a coder agent" or "I need a financ
 
 You shouldn't need to run scripts manually — the orchestrator handles orchestration.
 
-## Manual Setup
-
-If you'd rather set up everything manually, see [SETUP.md](SETUP.md).
-
 ## License
 
 MIT

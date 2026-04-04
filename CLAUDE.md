@@ -85,6 +85,30 @@ PROJECT_ROOT/agents/<agent-name>/
 
 All agents inherit `PROJECT_ROOT/CLAUDE.md` (this file) via directory traversal. Agent-specific `CLAUDE.md` lives in each agent's folder.
 
+## Docs Folder
+
+Each agent has a `docs/` folder for durable reference material that doesn't belong in memory or CLAUDE.md. The three surfaces have different jobs:
+
+- **CLAUDE.md** — identity, scope, standing rules. Always loaded into every turn's context. Keep it tight.
+- **memory/** — short facts about the user, project state, feedback, and reference pointers. Indexed in MEMORY.md, auto-loaded. Personal to the agent.
+- **docs/** — multi-paragraph reference material the agent opens on demand: checklists, workflows, external-policy summaries, design rationale, setup walkthroughs. Not auto-loaded; re-read when relevant.
+
+**When to write a new doc:**
+- The content is too long for CLAUDE.md (would bloat context every turn).
+- It needs to be re-read in full before a specific recurring action (e.g. a pre-push scrub checklist, a disaster-recovery runbook).
+- It summarizes an external source that might drift (compliance docs, third-party API behavior) and you want one authoritative local copy.
+- It's stable reference, not a volatile fact about the user or project.
+
+**When NOT to write a doc:**
+- A one-line memory entry would do.
+- The content is identity/scope (belongs in CLAUDE.md).
+- It duplicates material already in another agent's docs or in the repo.
+
+**Maintenance:**
+- Review docs when you touch adjacent work. Stale guidance is worse than no guidance — update or delete.
+- Docs are agent-internal by default. Don't reference them from files intended for outside audiences unless you plan to keep the docs public.
+- Prefer deletion over leaving stale docs around.
+
 ## Plugins / Skills
 
 Plugins are configured per-agent in `PROJECT_ROOT/agents/<agent-name>/.claude/settings.local.json`, not globally. To install a plugin for just one agent, run `/plugin install <name>` from within that agent's directory — Claude Code writes to the local settings.local.json automatically.

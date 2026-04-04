@@ -4,12 +4,28 @@ A template for running persistent Claude Code agents as a team, reachable via Te
 
 Each agent runs in a tmux session with its own identity, memory, docs, and Telegram bot. Agents share MCP servers for things like Gmail, Calendar, and Drive. Recurring tasks run via OS-level crontab that pokes each agent's session on a schedule.
 
+## Quick Start
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/VantaSoft/claude-code-teams/main/install.sh | bash
+cd ~/agents/orchestrator
+claude --dangerously-skip-permissions
+```
+
+The orchestrator agent will guide you through the rest — Telegram bot setup, Google OAuth (optional), heartbeat configuration.
+
+## Prerequisites
+
+- Claude Code CLI ([anthropic.com/claude-code](https://www.anthropic.com/claude-code))
+- `tmux`, `git`, `node`
+- A Telegram account
+
 ## What You Get
 
-- **One orchestrator agent** out of the box (Chief of Staff pattern)
-- **Google Workspace MCP server** with Gmail, Calendar, and Drive tools (read + write)
-- **Heartbeat system** for recurring tasks (email triage, morning briefings, monitoring)
-- **Scripts** to create, start, and restart agents
+- **Orchestrator agent** — Chief of Staff pattern, reachable via Telegram
+- **Google Workspace MCP server** — Gmail, Calendar, Drive tools (read + write)
+- **Heartbeat system** — Recurring tasks via OS crontab
+- **Scripts** — Create new agents, start/restart existing ones
 - **Telegram integration** via Claude Code's official Telegram plugin
 
 ## Architecture
@@ -17,12 +33,12 @@ Each agent runs in a tmux session with its own identity, memory, docs, and Teleg
 ```
 ~/
 ├── CLAUDE.md              # Shared config inherited by all agents
-├── .mcp.json              # MCP server registry (shared)
+├── .mcp.json              # MCP server registry (created during setup)
 ├── agents/
 │   └── orchestrator/      # Chief of staff (reference agent)
 │       ├── CLAUDE.md
 │       ├── tasks.md
-│       ├── heartbeat.md   # (create when you add recurring tasks)
+│       ├── heartbeat.md   # Created when you add recurring tasks
 │       ├── docs/
 │       ├── memory/
 │       ├── scripts/
@@ -39,18 +55,6 @@ Each agent:
 - Has its own memory folder (persists across conversations)
 - Inherits `~/CLAUDE.md` (shared) + its own `CLAUDE.md` (role-specific)
 
-## Quick Start
-
-See [SETUP.md](SETUP.md) for the full walkthrough.
-
-Short version:
-1. Clone into `~/` so files land at the right paths
-2. Install Claude Code
-3. Create a Telegram bot via @BotFather
-4. Set up the Telegram channel config
-5. Start the orchestrator
-6. (Optional) Set up Google Workspace MCP for email/calendar access
-
 ## Heartbeat — Recurring Tasks
 
 Each agent can have a `heartbeat.md` with recurring tasks. An OS-level crontab entry types the heartbeat prompt into the agent's tmux session every 30 minutes:
@@ -63,11 +67,17 @@ This survives restarts, the 7-day Claude Code cron expiry, and session crashes.
 
 ## Adding More Agents
 
+From within your orchestrator session, ask it to create a new agent, or run:
+
 ```bash
 ~/agents/orchestrator/scripts/create-agent.sh coder
 ```
 
-Scaffolds a new agent directory. Then create a Telegram bot for it, set up the channel, and launch.
+Then set up a Telegram bot for the new agent and launch it.
+
+## Manual Setup
+
+If you'd rather set up everything manually, see [SETUP.md](SETUP.md).
 
 ## License
 

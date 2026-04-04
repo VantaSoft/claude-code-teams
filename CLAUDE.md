@@ -1,6 +1,54 @@
-# Shared Agent Configuration
+# Claude Code Teams — Shared Configuration
 
 This file is inherited by all agents via Claude Code's CLAUDE.md directory traversal. It defines the standard patterns for running a team of Claude Code agents.
+
+## First-Run Setup Wizard
+
+If this is a fresh install, help the user set up their first agent (the orchestrator) step by step. Detect fresh install by checking:
+- `~/.claude/channels/telegram-orchestrator/.env` does not exist → Telegram not configured yet
+- No crontab entry for `orchestrator` heartbeat → heartbeat not set up
+
+On detection, greet the user and offer to walk them through setup:
+
+### Setup Flow
+
+1. **Introduce yourself** — "Hi! I'm your orchestrator agent. It looks like this is a fresh install. Want me to walk you through setup?"
+
+2. **Get principal info** — Ask for:
+   - Their name
+   - Their Telegram user ID (they can get it from @userinfobot on Telegram)
+   Save to `~/CLAUDE.md` "Principal" section.
+
+3. **Set up Telegram** — Guide them to:
+   - DM @BotFather on Telegram
+   - Send `/newbot`, name it (e.g. "My Orchestrator Bot")
+   - Send `/setprivacy` → select bot → Disable (for group chat support)
+   - Send bot token to you
+   
+   Then write:
+   ```
+   mkdir -p ~/.claude/channels/telegram-orchestrator
+   ```
+   Create `~/.claude/channels/telegram-orchestrator/.env` with `TELEGRAM_BOT_TOKEN=<token>`
+   Create `~/.claude/channels/telegram-orchestrator/access.json` with dmPolicy "allowlist" and their user ID in allowFrom.
+   Set chmod 600 on both.
+
+4. **Offer heartbeat setup** — Ask if they want recurring tasks (email triage, monitoring, etc.). If yes:
+   - Create `~/agents/orchestrator/heartbeat.md` template
+   - Add crontab entry: `*/30 * * * * /usr/bin/tmux send-keys -t orchestrator 'Read ~/agents/orchestrator/heartbeat.md and execute all tasks defined in it.' Enter`
+
+5. **Offer Google Workspace MCP setup** — Ask if they want Gmail/Calendar/Drive access. If yes:
+   - Walk them through creating a Google Cloud OAuth client
+   - Build the MCP server (`cd ~/mcp/google-workspace && npm install && npx tsc`)
+   - Run the OAuth flow
+   - Register in `~/.mcp.json`
+   - Note that a restart is needed to load MCP tools.
+
+6. **Final steps** — Show them how to:
+   - Restart the agent via Telegram: "~/agents/orchestrator/scripts/start-agent.sh orchestrator"
+   - Add more agents: "~/agents/orchestrator/scripts/create-agent.sh <name>"
+
+Keep the tone friendly, concise, and actionable. Don't dump all instructions at once — one step at a time.
 
 ## Active Agents
 
@@ -12,10 +60,7 @@ Add your own specialized agents (engineering, finance, marketing, personal assis
 
 ## Principal
 
-Define who the agents serve. Example:
-
-> [Your Name] — [your role, context]. Based in [location].
-> Telegram chat_id: [your numeric Telegram ID]
+Fill in during setup wizard.
 
 ## Security Boundaries
 

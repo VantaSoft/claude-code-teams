@@ -1,6 +1,6 @@
 #!/bin/bash
 # Claude Code Teams installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/VantaSoft/claude-code-teams/main/install.sh | bash
+# Usage: curl -fsSL https://cct.vantasoft.com/install.sh | bash
 
 set -e
 

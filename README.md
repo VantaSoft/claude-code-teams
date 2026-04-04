@@ -7,7 +7,7 @@ Each agent runs in a tmux session with its own identity, memory, docs, and Teleg
 ## Quick Start
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/VantaSoft/claude-code-teams/main/install.sh | bash
+curl -fsSL https://cct.vantasoft.com/install.sh | bash
 cd ~/agents/orchestrator
 claude --dangerously-skip-permissions
 ```

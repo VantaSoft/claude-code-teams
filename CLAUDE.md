@@ -113,6 +113,16 @@ Each agent has a `docs/` folder for durable reference material that doesn't belo
 
 Plugins are configured per-agent in `PROJECT_ROOT/agents/<agent-name>/.claude/settings.local.json`, not globally. To install a plugin for just one agent, run `/plugin install <name>` from within that agent's directory — Claude Code writes to the local settings.local.json automatically.
 
+## Hooks
+
+Shared Claude Code hooks live at `PROJECT_ROOT/hooks/`. Each agent registers the hooks it wants in its own `.claude/settings.local.json`.
+
+Currently shipping:
+
+- `hooks/channel-reply-reminder.ts` — UserPromptSubmit hook. Parses channel tags on inbound prompts (`<channel source="plugin:telegram:telegram" chat_id="..." ...>`) and injects a short reminder telling the agent to reply via the channel's MCP reply tool. Defense-in-depth for the Reply Channel rule. `create-agent.sh` wires it into every scaffolded agent automatically.
+
+See `hooks/README.md` for details and adding new hooks.
+
 ## Messaging Other Agents
 
 Agents can send one-line messages into each other's tmux sessions. This is how cross-agent coordination happens (e.g. a marketing agent asks the orchestrator to sync schedules; the orchestrator asks a coding agent to clone a repo).

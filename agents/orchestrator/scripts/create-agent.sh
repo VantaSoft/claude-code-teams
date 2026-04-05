@@ -47,8 +47,26 @@ cat > "$AGENT_DIR/tasks.md" << EOF
 # $AGENT_NAME Tasks
 EOF
 
-# Create empty MEMORY.md
+# Seed MEMORY.md with the reply-channel feedback pointer
 cat > "$AGENT_DIR/memory/MEMORY.md" << EOF
+# Memory Index
+
+- [Always reply via Telegram](feedback_always_reply_telegram.md) — if prompt source is plugin:telegram:telegram, reply via mcp__plugin_telegram_telegram__reply
+EOF
+
+# Seed the reply-channel feedback memory (agents drift from CLAUDE.md on short replies)
+cat > "$AGENT_DIR/memory/feedback_always_reply_telegram.md" << 'EOF'
+---
+name: Always reply via Telegram when prompt came from Telegram
+description: If the user prompt carried source="plugin:telegram:telegram", every reply MUST go through mcp__plugin_telegram_telegram__reply
+type: feedback
+---
+
+When the incoming user message is wrapped in <channel source="plugin:telegram:telegram" chat_id="..." ...>, the reply MUST go through mcp__plugin_telegram_telegram__reply. Terminal text is invisible — the user is on Telegram.
+
+**Why:** The rule is in ~/CLAUDE.md but agents drift, especially on short replies. A memory entry adds an extra attention hook every turn.
+
+**How to apply:** Check the channel source of the most recent user message before every response. Short replies ("ok", "done") are the highest-risk moments. No trailing terminal text after the reply tool — that's invisible too.
 EOF
 
 # Set autoMemoryDirectory and enabled plugins (per-agent, not global)

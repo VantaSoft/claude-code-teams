@@ -69,12 +69,24 @@ When the incoming user message is wrapped in <channel source="plugin:telegram:te
 **How to apply:** Check the channel source of the most recent user message before every response. Short replies ("ok", "done") are the highest-risk moments. No trailing terminal text after the reply tool — that's invisible too.
 EOF
 
-# Set autoMemoryDirectory and enabled plugins (per-agent, not global)
+# Set autoMemoryDirectory, enabled plugins, and the shared reply-channel reminder hook
 cat > "$AGENT_DIR/.claude/settings.local.json" << EOF
 {
   "autoMemoryDirectory": "$AGENT_DIR/memory",
   "enabledPlugins": {
     "telegram@claude-plugins-official": true
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun $PROJECT_ROOT/hooks/channel-reply-reminder.ts"
+          }
+        ]
+      }
+    ]
   }
 }
 EOF

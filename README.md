@@ -13,7 +13,7 @@ cd claude-code-teams/agents/orchestrator
 claude --dangerously-skip-permissions
 ```
 
-When Claude launches, type **`setup wizard`** to kick it off. The orchestrator will guide you through the rest (Telegram bot, Google OAuth, schedules).
+When Claude launches, say hi — any first message triggers the wizard. The orchestrator will walk you through installing the Telegram plugin, creating your bot, and relaunching itself under tmux with Telegram connected.
 
 ## Prerequisites
 

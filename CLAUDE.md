@@ -113,6 +113,20 @@ Each agent has a `docs/` folder for durable reference material that doesn't belo
 
 Plugins are configured per-agent in `PROJECT_ROOT/agents/<agent-name>/.claude/settings.local.json`, not globally. To install a plugin for just one agent, run `/plugin install <name>` from within that agent's directory — Claude Code writes to the local settings.local.json automatically.
 
+## Messaging Other Agents
+
+Agents can send one-line messages into each other's tmux sessions. This is how cross-agent coordination happens (e.g. a marketing agent asks the orchestrator to sync schedules; the orchestrator asks a coding agent to clone a repo).
+
+```bash
+PROJECT_ROOT/agents/orchestrator/scripts/message-agent.sh <agent-name> "<message>"
+```
+
+The script looks up the tmux session by agent name and types the message in followed by Enter. The receiving agent sees the text as terminal input (no `<channel>` tag), processes it, and responds in its own terminal. Use this pattern — do NOT try to call another agent's Telegram bot, edit their files directly, or talk to their tmux session yourself.
+
+**Message style:** Write it like a clear one-line instruction or ask, e.g. "<agent-A> added `PROJECT_ROOT/agents/<agent-A>/schedules/<name>.md` (cron: 0 14 * * 1). Please run `PROJECT_ROOT/agents/orchestrator/scripts/sync-schedules.sh` to install the cron entry." The receiver is another Claude agent and will read, reason, and act.
+
+**When to use:** Cross-agent dependencies (schedule syncs, repo clones, handoffs), status pings, or any workflow the other agent owns. Use it sparingly — each message interrupts the other agent's turn.
+
 ## Shared Resources
 
 - MCP servers: `PROJECT_ROOT/mcp/`

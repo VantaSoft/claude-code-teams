@@ -72,6 +72,7 @@ EOF
 # Set autoMemoryDirectory, enabled plugins, and the shared reply-channel reminder hook
 cat > "$AGENT_DIR/.claude/settings.local.json" << EOF
 {
+  "skipDangerousModePermissionPrompt": true,
   "autoMemoryDirectory": "$AGENT_DIR/memory",
   "enabledPlugins": {
     "telegram@claude-plugins-official": true

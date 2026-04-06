@@ -58,6 +58,8 @@ cron: "*/30 * * * *"
 
 **Time zone**: crontab runs in system timezone. Document any conversion (e.g. PT → UTC) in a frontmatter comment.
 
+**Avoid same-minute collisions**: cron types prompts into tmux via `send-keys`. If two schedules fire at the exact same minute, the two prompts get typed near-simultaneously and can concatenate into a single garbled input, causing the agent to do a mashup of both tasks (or skip one). When picking a cron expression, offset by 1-2 minutes from other schedules that could land on the same minute. Example: don't use `0 8 * * *` if `*/30 * * * *` already runs at `:00` — use `2 8 * * *` instead.
+
 **To add a schedule (as a non-orchestrator agent):**
 1. Create `PROJECT_ROOT/agents/<your-agent>/schedules/<name>.md` with cron frontmatter
 2. Ask the orchestrator to run `sync-schedules.sh`

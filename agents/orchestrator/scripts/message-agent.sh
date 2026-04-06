@@ -11,5 +11,10 @@ if ! tmux has-session -t "$AGENT" 2>/dev/null; then
   exit 1
 fi
 
-tmux send-keys -t "$AGENT" "$MSG" Enter
+# Use load-buffer + paste-buffer to avoid tmux's bracketed paste mode
+# which triggers a "Pasted text" confirmation prompt in Claude Code
+# for long messages. send-keys Enter submits after pasting.
+printf '%s' "$MSG" | tmux load-buffer -
+tmux paste-buffer -d -t "$AGENT"
+tmux send-keys -t "$AGENT" Enter
 echo "Sent to $AGENT"

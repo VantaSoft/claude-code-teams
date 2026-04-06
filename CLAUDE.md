@@ -130,7 +130,7 @@ See `hooks/README.md` for details and adding new hooks.
 Agents can send one-line messages into each other's tmux sessions. This is how cross-agent coordination happens (e.g. a marketing agent asks the orchestrator to sync schedules; the orchestrator asks a coding agent to clone a repo).
 
 ```bash
-PROJECT_ROOT/agents/orchestrator/scripts/message-agent.sh <agent-name> "<message>"
+PROJECT_ROOT/scripts/message-agent.sh <agent-name> "<message>"
 ```
 
 The script looks up the tmux session by agent name and types the message in followed by Enter. The receiving agent sees the text as terminal input (no `<channel>` tag), processes it, and responds in its own terminal. Use this pattern — do NOT try to call another agent's Telegram bot, edit their files directly, or talk to their tmux session yourself.

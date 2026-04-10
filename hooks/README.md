@@ -32,9 +32,13 @@ Not enforcement — the agent can still ignore it — but more pointed.
 
 ## Channel support
 
-Generic. Parses `source="plugin:<channel>:<channel>"` and emits
-`mcp__plugin_<channel>_<channel>__reply`. Works for telegram, discord,
-and any future first-party channel following the same naming convention.
+Supports multiple channel types:
+
+- **Telegram** — `source="plugin:telegram:telegram"` → `mcp__plugin_telegram_telegram__reply` (routes via `chat_id`)
+- **Discord** — `source="plugin:discord:discord"` → `mcp__plugin_discord_discord__reply` (routes via `chat_id`)
+- **Slack** — `source="slack"` → `mcp__channel-slack__slack_reply` (routes via `channel_id`, supports `thread_ts` for threading)
+
+Add new channel types by adding entries to the `specForSource()` function.
 
 ## Install per agent
 
@@ -68,6 +72,14 @@ block in — don't replace.
 echo '{"prompt":"<channel source=\"plugin:telegram:telegram\" chat_id=\"123\" message_id=\"5\">\nhi\n</channel>"}' \
   | bun channel-reply-reminder.ts
 
+# Slack prompt — should emit additionalContext with channel_id
+echo '{"prompt":"<channel source=\"slack\" channel_id=\"D0ARZEL0GEN\" ts=\"123\" user=\"bob\" kind=\"dm\">\nhi\n</channel>"}' \
+  | bun channel-reply-reminder.ts
+
+# Slack threaded prompt — should include thread_ts
+echo '{"prompt":"<channel source=\"slack\" channel_id=\"C05MEDFB3TJ\" ts=\"456\" thread_ts=\"123\" user=\"bob\" kind=\"channel\">\nhi\n</channel>"}' \
+  | bun channel-reply-reminder.ts
+
 # Terminal prompt (no tag) — silent
 echo '{"prompt":"just terminal text"}' | bun channel-reply-reminder.ts
 ```
@@ -82,5 +94,5 @@ This is one layer in a defense-in-depth stack for reply-channel routing:
    triggering prompt. Strongest non-deterministic nudge.
 ## Files
 
-- `channel-reply-reminder.ts` — the hook (~70 lines, Bun, stdlib only).
+- `channel-reply-reminder.ts` — the hook (~120 lines, Bun, stdlib only).
 - `README.md` — this file.

@@ -6,11 +6,18 @@ In docs, `PROJECT_ROOT` refers to the directory containing this file (the instal
 
 ## Reply Channel (Critical)
 
-**Before producing any response, check the channel source of the incoming message.** If it came via Telegram (`source="plugin:telegram:telegram"`), the reply MUST go through the Telegram reply tool (`mcp__plugin_telegram_telegram__reply`). Plain text output is invisible to the principal — they are on Telegram, not the terminal.
+**Before producing any response, check the channel source of the incoming message.** Reply via the correct channel tool — plain text output is invisible to users on Telegram or Slack.
 
-The habit: send a Telegram reply FIRST (even just "on it"), then do the work. Every time.
+| Source | Reply tool | Routing ID |
+|--------|-----------|------------|
+| `plugin:telegram:telegram` | `mcp__plugin_telegram_telegram__reply` | `chat_id` |
+| `slack` | `mcp__channel-slack__slack_reply` | `channel_id` |
+
+The habit: send a channel reply FIRST (even just "on it"), then do the work. Every time.
 
 Only respond via terminal when the incoming message arrived via terminal (no `<channel>` tag).
+
+For Slack threads: if the inbound message includes `thread_ts`, pass it to the reply tool to respond in the same thread.
 
 ## Active Agents
 
@@ -121,7 +128,7 @@ Shared Claude Code hooks live at `PROJECT_ROOT/hooks/`. Each agent registers the
 
 Currently shipping:
 
-- `hooks/channel-reply-reminder.ts` — UserPromptSubmit hook. Parses channel tags on inbound prompts (`<channel source="plugin:telegram:telegram" chat_id="..." ...>`) and injects a short reminder telling the agent to reply via the channel's MCP reply tool. Defense-in-depth for the Reply Channel rule. `create-agent.sh` wires it into every scaffolded agent automatically.
+- `hooks/channel-reply-reminder.ts` — UserPromptSubmit hook. Parses channel tags on inbound prompts (Telegram, Slack, Discord) and injects a short reminder telling the agent to reply via the correct MCP reply tool. Defense-in-depth for the Reply Channel rule. `create-agent.sh` wires it into every scaffolded agent automatically.
 
 See `hooks/README.md` for details and adding new hooks.
 
@@ -141,5 +148,5 @@ The script looks up the tmux session by agent name and types the message in foll
 
 ## Shared Resources
 
-- MCP servers: `PROJECT_ROOT/mcp/`
-- User-level config (Telegram channels, OAuth tokens): `~/.claude/channels/`, `~/.config/`
+- MCP servers: `PROJECT_ROOT/mcp/` (Google Workspace, Slack channel)
+- User-level config (Telegram/Slack channels, OAuth tokens): `~/.claude/channels/`, `~/.config/`

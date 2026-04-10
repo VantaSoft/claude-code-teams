@@ -62,10 +62,16 @@ In this doc:
 
 8. **Update the Active Agents table** in `PROJECT_ROOT/CLAUDE.md` with the new agent's name, role, directory, and tmux session.
 
-9. **Offer follow-up** — Ask if they want to customize the agent's schedules, docs, or add specific tools/MCP servers.
+9. **(Optional) Add Slack** — If the principal wants the agent on Slack too, follow `docs/slack-setup.md` or run the one-command setup:
+   ```bash
+   PROJECT_ROOT/agents/orchestrator/scripts/setup-slack.sh <name> <xoxb-token> <xapp-token> <principal-slack-user-id> [channel-ids...]
+   ```
+   This creates a separate Slack App + bot for the agent. Agents can be on Telegram only, Slack only, or both.
+
+10. **Offer follow-up** — Ask if they want to customize the agent's schedules, docs, or add specific tools/MCP servers.
 
 ## Tips
 
 - Keep each agent's scope narrow — specialized agents work better than generalists
-- One bot per agent — don't share Telegram bots
+- One bot per agent — don't share Telegram or Slack bots
 - If the principal is unsure what scope to give the agent, suggest starting minimal and expanding based on actual use

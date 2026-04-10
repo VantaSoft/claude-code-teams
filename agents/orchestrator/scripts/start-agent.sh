@@ -94,7 +94,7 @@ tmux new-session -d -s "$AGENT_NAME" -c "$AGENT_DIR" \
 if $USE_SLACK; then
   (
     for i in $(seq 1 60); do
-      if tmux capture-pane -t "$AGENT_NAME" -p 2>/dev/null | grep -q "Enter to confirm"; then
+      if tmux capture-pane -t "$AGENT_NAME" -p 2>/dev/null | grep -qE "Enter to confirm|local development"; then
         tmux send-keys -t "$AGENT_NAME" Enter
         echo "Auto-approved dev-channel prompt for $AGENT_NAME"
         break

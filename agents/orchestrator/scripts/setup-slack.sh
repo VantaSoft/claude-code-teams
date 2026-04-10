@@ -82,7 +82,7 @@ echo "Restarting $AGENT..."
 
 # 6. Approve dev-channel prompt (first time)
 sleep 7
-if tmux capture-pane -t "$AGENT" -p 2>/dev/null | grep -q "Enter to confirm"; then
+if tmux capture-pane -t "$AGENT" -p 2>/dev/null | grep -qE "Enter to confirm|local development"; then
   tmux send-keys -t "$AGENT" Enter
   echo "Approved dev-channel prompt for $AGENT"
 else

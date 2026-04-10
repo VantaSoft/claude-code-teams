@@ -93,14 +93,20 @@ tmux new-session -d -s "$AGENT_NAME" -c "$AGENT_DIR" \
 # Checks once per second for up to 60 seconds. No-op if the prompt never appears.
 if $USE_SLACK; then
   (
+    approved=false
     for i in $(seq 1 60); do
       if tmux capture-pane -t "$AGENT_NAME" -p 2>/dev/null | grep -qE "Enter to confirm|local development"; then
         tmux send-keys -t "$AGENT_NAME" Enter
         echo "Auto-approved dev-channel prompt for $AGENT_NAME"
+        approved=true
         break
       fi
       sleep 1
     done
+    if ! $approved; then
+      echo "Warning: dev-channel prompt not detected after 60s for $AGENT_NAME."
+      echo "  The agent may be waiting for manual approval. Try: tmux send-keys -t $AGENT_NAME Enter"
+    fi
   ) &
 fi
 

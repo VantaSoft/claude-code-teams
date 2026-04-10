@@ -84,7 +84,8 @@ Each Slack-enabled agent runs 2 extra bun processes (in addition to Telegram's 2
 
 ## Troubleshooting
 
-- **Agent restarted but `slack_reply` tool not available:** Check `.mcp.json` exists at the agent's working directory and that `~/.claude/channels/slack-<agent>/.env` has both tokens. Look for MCP errors in the agent's Claude Code startup output.
+- **Agent restarted but `slack_reply` tool not available:** Check `.mcp.json` (not `settings.local.json`) exists at the agent's working directory and that `~/.claude/channels/slack-<agent>/.env` has both tokens. Look for MCP errors in the agent's Claude Code startup output.
+- **"no MCP server configured with that name":** The `server:slack` in `--dangerously-load-development-channels` must match a key in `.mcp.json`'s `mcpServers` object. Check that the key is literally `"slack"` (not `"slack-channel"` or anything else).
 - **"Development channel" prompt blocks startup:** Approve remotely with `tmux send-keys -t <agent> Enter`. One-time per agent.
 - **Bot doesn't respond in a channel:** Ensure the bot is invited to the channel (`/invite @bot`) AND the channel ID is in access.json's `channels` array.
 - **Bot doesn't respond to DMs:** Check `dmPolicy` is `"allowlist"` and the user's ID is in `allowFromUsers`. Also verify `messages_tab_enabled: true` in the app manifest.

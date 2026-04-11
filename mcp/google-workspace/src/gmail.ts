@@ -112,6 +112,50 @@ export class GmailClient {
     });
   }
 
+  async readMessage(messageId: string): Promise<{ from: string; to: string; subject: string; date: string; body: string }> {
+    const res = await this.gmail.users.messages.get({ userId: "me", id: messageId, format: "full" });
+    const msg = res.data;
+    const headers = msg.payload?.headers || [];
+    const getHeader = (name: string) => headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value || "";
+
+    // Walk the MIME tree to find text/plain (preferred) or text/html (fallback)
+    const extractBody = (part: gmail_v1.Schema$MessagePart | undefined): { plain: string; html: string } => {
+      if (!part) return { plain: "", html: "" };
+      let plain = "";
+      let html = "";
+      const mime = part.mimeType || "";
+      if (mime === "text/plain" && part.body?.data) {
+        plain = Buffer.from(part.body.data, "base64url").toString("utf-8");
+      } else if (mime === "text/html" && part.body?.data) {
+        html = Buffer.from(part.body.data, "base64url").toString("utf-8");
+      }
+      if (part.parts) {
+        for (const sub of part.parts) {
+          const r = extractBody(sub);
+          if (!plain && r.plain) plain = r.plain;
+          if (!html && r.html) html = r.html;
+        }
+      }
+      return { plain, html };
+    };
+
+    const { plain, html } = extractBody(msg.payload || undefined);
+    let body = plain;
+    if (!body && html) {
+      // Strip HTML tags as a fallback
+      body = html.replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/\s+/g, " ").trim();
+    }
+    if (!body && msg.snippet) body = msg.snippet;
+
+    return {
+      from: getHeader("From"),
+      to: getHeader("To"),
+      subject: getHeader("Subject"),
+      date: getHeader("Date"),
+      body,
+    };
+  }
+
   async batchMarkAsSpam(messageIds: string[]): Promise<string> {
     await this.gmail.users.messages.batchModify({
       userId: "me",

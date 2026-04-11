@@ -163,6 +163,18 @@ server.tool(
 );
 
 server.tool(
+  "gmail_read",
+  "Read the full body and headers of a Gmail message",
+  { messageId: z.string().describe("The Gmail message ID"), account: accountParam },
+  async ({ messageId, account }) => {
+    const { gmail } = await getClients(account);
+    const m = await gmail.readMessage(messageId);
+    const text = `From: ${m.from}\nTo: ${m.to}\nSubject: ${m.subject}\nDate: ${m.date}\n\n${m.body}`;
+    return { content: [{ type: "text", text }] };
+  }
+);
+
+server.tool(
   "gmail_send",
   "Send an email",
   {
@@ -344,12 +356,28 @@ server.tool(
 
 server.tool(
   "gdrive_read",
-  "Read the content of a Google Drive file (works with Docs, Sheets, and text files)",
-  { fileId: z.string().describe("The Drive file ID"), account: accountParam },
+  "Read the content of a Google Drive file (works with Docs, Sheets, and text files). For Google Sheets, optionally specify a sheetName to read a specific tab.",
+  {
+    fileId: z.string().describe("The Drive file ID"),
+    sheetName: z.string().optional().describe("For Google Sheets: name of the sheet/tab to read. Omit to read the first sheet. Use gdrive_list_sheets to see available tabs."),
+    account: accountParam,
+  },
+  async ({ fileId, sheetName, account }) => {
+    const { drive } = await getClients(account);
+    const content = await drive.readFileContent(fileId, sheetName);
+    return { content: [{ type: "text", text: content }] };
+  }
+);
+
+server.tool(
+  "gdrive_list_sheets",
+  "List all sheet/tab names in a Google Sheets spreadsheet",
+  { fileId: z.string().describe("The Google Sheets file ID"), account: accountParam },
   async ({ fileId, account }) => {
     const { drive } = await getClients(account);
-    const content = await drive.readFileContent(fileId);
-    return { content: [{ type: "text", text: content }] };
+    const sheets = await drive.listSheets(fileId);
+    if (sheets.length === 0) return { content: [{ type: "text", text: "No sheets found." }] };
+    return { content: [{ type: "text", text: sheets.map((s, i) => `${i + 1}. ${s}`).join("\n") }] };
   }
 );
 

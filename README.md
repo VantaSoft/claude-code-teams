@@ -1,8 +1,16 @@
 # Claude Code Teams
 
-A template for running persistent Claude Code agents as a team, reachable via Telegram and/or Slack.
+A template for running persistent Claude Code agents as a team, reachable via the messaging channel of your choice.
 
-Each agent runs in a tmux session with its own identity, memory, docs, and messaging channel (Telegram bot, Slack bot, or both). Agents share MCP servers for things like Gmail, Calendar, Drive, and Slack. Recurring tasks run via OS-level crontab that pokes each agent's session on a schedule.
+**Supported channels:**
+- **Telegram** — via Claude Code's official channel plugin
+- **iMessage** — via Claude Code's official channel plugin (macOS only)
+- **Discord** — via Claude Code's official channel plugin
+- **Slack** — via the included `mcp/slack-channel` MCP server (Socket Mode, no public URL needed)
+
+Telegram, iMessage, and Discord ride on first-party Claude Code plugins. Slack is a custom MCP server shipped with this repo. You can run any combination — agents can be on one channel, several, or all of them simultaneously.
+
+Each agent runs in a tmux session with its own identity, memory, docs, and messaging credentials. Agents share MCP servers for things like Gmail, Calendar, Drive, and Slack. Recurring tasks run via OS-level crontab that pokes each agent's session on a schedule.
 
 ## Quick Start
 
@@ -13,38 +21,44 @@ cd claude-code-teams/agents/orchestrator
 claude --dangerously-skip-permissions
 ```
 
-When Claude launches, say hi — any first message triggers the wizard. The orchestrator will walk you through installing the Telegram plugin, creating your bot, and relaunching itself under tmux with Telegram connected.
+When Claude launches, say hi — any first message triggers the wizard. The orchestrator will walk you through picking a channel, configuring it, and relaunching itself under tmux with that channel connected.
 
 ## Prerequisites
 
 - Claude Code CLI ([anthropic.com/claude-code](https://www.anthropic.com/claude-code))
 - `git` (already on most Macs/Linux boxes)
-- A Telegram account (for initial setup; Slack can be added later)
+- An account with the messaging service you want to use (Telegram, iMessage, Discord, or Slack)
 
 The orchestrator will install `tmux` and `node` for you on first launch if they're missing.
 
 ### Where to Run It
 
 We recommend a **Mac Mini** (or any always-on home server). A **cloud VM** (EC2, DigitalOcean, etc.) works fine too. The key requirements are:
-- Always-on — agents need to stay running to receive Telegram messages and fire scheduled tasks
-- Persistent storage — agent memory, Telegram configs, OAuth tokens live on disk
+- Always-on — agents need to stay running to receive inbound messages and fire scheduled tasks
+- Persistent storage — agent memory, channel configs, OAuth tokens live on disk
 - You can SSH in for occasional maintenance
+
+(iMessage requires macOS specifically. The other channels work on Linux too.)
 
 ## What You Get
 
-- **Orchestrator agent** — Chief of Staff pattern, reachable via Telegram and/or Slack
+- **Orchestrator agent** — Chief of Staff pattern, reachable via your chosen channel(s)
+- **Channel integrations:**
+  - Telegram, iMessage, Discord — via Claude Code's first-party plugins
+  - Slack — via the included `mcp/slack-channel` MCP server (Socket Mode + WebClient, with auto-react progress indicator)
 - **Google Workspace MCP server** — Gmail, Calendar, Drive tools (read + write)
-- **Slack channel MCP server** — Slack integration via Socket Mode (no public URL needed)
-- **Schedules system** — Per-task .md files with cron frontmatter, synced to OS crontab (email triage, briefings, monitoring)
-- **Telegram integration** — via Claude Code's official Telegram plugin
-- **Slack integration** — via the included Slack channel MCP server (Socket Mode + WebClient)
-- **Scripts** — Create new agents, start/restart existing ones, one-command Slack setup
+- **Schedules system** — Per-task `.md` files with cron frontmatter, synced to OS crontab (email triage, briefings, monitoring)
+- **Scripts** — Create new agents, start/restart existing ones, one-command Slack setup, cross-agent messaging
 
 ## Architecture
 
 ```
 claude-code-teams/          # The install directory
 ├── CLAUDE.md              # Shared config inherited by all agents
+├── scripts/                # Fleet-wide tooling
+│   ├── start-agent.sh      # Start or restart any agent
+│   ├── compact-agent.sh    # Send /compact to an agent
+│   └── message-agent.sh    # Send a one-shot message into an agent's session
 ├── agents/
 │   └── orchestrator/      # Chief of staff (reference agent)
 │       ├── CLAUDE.md
@@ -52,39 +66,40 @@ claude-code-teams/          # The install directory
 │       ├── schedules/      # One .md per recurring task, with cron frontmatter
 │       ├── docs/
 │       ├── memory/
-│       ├── scripts/
-│       │   ├── start-agent.sh
+│       ├── scripts/        # Orchestrator-specific tooling
 │       │   ├── create-agent.sh
+│       │   ├── setup-slack.sh
 │       │   └── sync-schedules.sh
 │       └── .claude/
+├── hooks/                  # Shared Claude Code hooks (channel-reply-reminder, etc.)
 └── mcp/
     ├── google-workspace/  # Gmail, Calendar, Drive MCP server
     └── slack-channel/     # Slack integration (Socket Mode + WebClient)
 
-~/.claude/channels/         # Telegram/Slack bot configs (user home)
+~/.claude/channels/         # Telegram/Discord/iMessage/Slack channel configs (user home)
 ~/.config/                  # OAuth tokens, etc. (user home)
 ~/.mcp.json                 # MCP server registry (user home, created during setup)
 ```
 
 Each agent:
 - Runs in its own tmux session
-- Has its own Telegram bot and/or Slack bot
+- Has its own channel credentials (one or more of Telegram, iMessage, Discord, Slack)
 - Has its own memory folder (persists across conversations)
 - Inherits the project root `CLAUDE.md` (shared) + its own `CLAUDE.md` (role-specific)
 
 ## Adding Slack
 
-Any agent can be connected to Slack (in addition to or instead of Telegram). See `agents/orchestrator/docs/slack-setup.md` for the full guide, or use the one-command setup:
+Any agent can be connected to Slack (in addition to or instead of any other channel). See `agents/orchestrator/docs/slack-setup.md` for the full guide, or use the one-command setup:
 
 ```bash
 agents/orchestrator/scripts/setup-slack.sh <agent> <xoxb-token> <xapp-token> <your-slack-user-id> [channel-ids...]
 ```
 
-This creates a Slack App per agent using Socket Mode (no public URL or webhook needed). Agents can be on Telegram only, Slack only, or both simultaneously.
+This creates a Slack App per agent using Socket Mode (no public URL or webhook needed). Agents can be on any combination of channels — Telegram only, Slack only, both, or all four (Telegram + iMessage + Discord + Slack) simultaneously.
 
 ## Adding More Agents
 
-Just ask your orchestrator via Telegram: "Add a coder agent" or "I need a finance agent." The orchestrator will scaffold the directory, walk you through creating a Telegram bot for it, configure the channel, and launch it.
+Just ask your orchestrator: "Add a coder agent" or "I need a finance agent." The orchestrator will scaffold the directory, walk you through creating credentials for the new agent's channel(s), configure them, and launch it.
 
 You shouldn't need to run scripts manually — the orchestrator handles orchestration.
 

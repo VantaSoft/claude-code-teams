@@ -14,9 +14,9 @@ set -e
 AGENT_NAME="${1:?Usage: ./start-agent.sh <agent-name> [telegram] [slack]}"
 shift
 
-# Project root is 3 levels up from this script: scripts/ -> orchestrator/ -> agents/ -> root
+# Project root is 1 level up from this script: scripts/ -> root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 AGENT_DIR="$PROJECT_ROOT/agents/$AGENT_NAME"
 TELEGRAM_STATE="$HOME/.claude/channels/telegram-$AGENT_NAME"

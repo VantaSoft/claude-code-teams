@@ -122,7 +122,7 @@ fi
 
 # 7. Restart agent
 echo "Restarting $AGENT..."
-"$SCRIPT_DIR/start-agent.sh" "$AGENT"
+"$PROJECT_ROOT/scripts/start-agent.sh" "$AGENT"
 
 # 8. Approve dev-channel prompt (first time)
 sleep 7

@@ -8,6 +8,9 @@
  * via the claude/channel notification protocol, and exposes reply/
  * react/update tools for outbound.
  *
+ * Load with: --channels plugin:slack --dangerously-load-development-channels
+ * (or via --plugin-dir if using local plugin loading)
+ *
  * State dir: $SLACK_STATE_DIR (default ~/.claude/channels/slack)
  *   .env          SLACK_BOT_TOKEN, SLACK_APP_TOKEN
  *   access.json   { dmPolicy, allowFromUsers, channels }
@@ -69,12 +72,20 @@ const socket = new SocketModeClient({ appToken: APP_TOKEN })
 let botUserId = ''
 let botUsername = ''
 
+// Pending ack reactions — keyed by channel_id, value is the ts of the most
+// recent inbound message that got the ackReaction. When the agent sends its
+// first reply to a channel, we automatically call remove_reaction on the
+// stored ts and clear the entry, so the agent doesn't have to manage the
+// "mark as done" step. Simple per-channel FIFO (newest overwrites oldest).
+const pendingAcks = new Map<string, string>()
+
 // --- Access control ---
 
 type Access = {
   dmPolicy?: 'allowlist' | 'disabled'
   allowFromUsers?: string[]
   channels?: string[]
+  ackReaction?: string
 }
 
 function loadAccess(): Access {
@@ -340,6 +351,22 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
         })
         lastTs = res.ts ?? ''
       }
+
+      // Auto-clear the pending ack reaction for this channel. The agent's
+      // reply means the turn is effectively done from the sender's POV, so
+      // the eyes indicator should flip off. Fire-and-forget — if the remove
+      // fails we don't block the reply.
+      const ackedTs = pendingAcks.get(channel)
+      if (ackedTs) {
+        const ackName = (loadAccess().ackReaction ?? '').trim()
+        if (ackName) {
+          web.reactions
+            .remove({ channel, timestamp: ackedTs, name: ackName })
+            .catch((err) => debugLog(`auto-clear ack failed ts=${ackedTs}: ${err}`))
+        }
+        pendingAcks.delete(channel)
+      }
+
       return {
         content: [
           { type: 'text', text: `sent: channel=${channel} ts=${lastTs}` },
@@ -535,6 +562,22 @@ async function handleInbound(event: Record<string, unknown>): Promise<void> {
     return
   }
 
+  // Progress indicator: react to the inbound message with the configured ack
+  // emoji so the sender sees "bot is working". The reaction is automatically
+  // cleared when the agent sends its first reply to this channel (see the
+  // reply tool handler below). Fire-and-forget on add — if the reaction
+  // fails we don't block message delivery.
+  {
+    const ackName = (loadAccess().ackReaction ?? '').trim()
+    if (ackName && event.ts) {
+      const ts = String(event.ts)
+      web.reactions
+        .add({ channel: channelId, timestamp: ts, name: ackName })
+        .catch((err) => debugLog(`ack reaction failed ts=${ts}: ${err}`))
+      pendingAcks.set(channelId, ts)
+    }
+  }
+
   // Permission-reply intercept: if this looks like "yes xxxxx" or "no xxxxx"
   // for a pending permission request, relay the decision instead of forwarding
   // as a channel message. Same pattern as the Telegram plugin.
@@ -547,6 +590,7 @@ async function handleInbound(event: Record<string, unknown>): Promise<void> {
       params: { request_id, behavior },
     }).catch(() => {})
     pendingPermissions.delete(request_id)
+    const emoji = behavior === 'allow' ? '✅' : '❌'
     if (event.ts) {
       web.reactions.add({ channel: channelId, timestamp: String(event.ts), name: behavior === 'allow' ? 'white_check_mark' : 'x' }).catch(() => {})
     }
@@ -667,6 +711,8 @@ socket.on('reconnecting', () => {
 process.on('unhandledRejection', (err) => {
   process.stderr.write(`slack channel: unhandled rejection at ${new Date().toISOString()}: ${err}\n`)
 })
+// No uncaughtException handler — let the process crash and restart cleanly
+// rather than continuing in a corrupted state.
 
 // --- Bootstrap ---
 // Socket Mode must start BEFORE mcp.connect() because connect() enters

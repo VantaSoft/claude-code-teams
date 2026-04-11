@@ -1,6 +1,17 @@
 #!/bin/bash
-# Send a one-line message to another agent's tmux session.
+# Send a message to another agent's tmux session.
 # Usage: message-agent.sh <agent-name> "<message>"
+#
+# Uses `tmux send-keys -l` (literal mode) to type the message one byte at a
+# time into the target session. This is slower than `paste-buffer` for long
+# messages but is deterministic — each keystroke is processed by Claude
+# Code's input field in order, so the trailing `send-keys Enter` never fires
+# before the input field is ready. No race, no buffer-sits-unsent bugs.
+#
+# Multi-line messages: embedded newlines are preserved in-place. Claude
+# Code's input field treats them as in-buffer line breaks (like option+enter),
+# NOT as submit-enter. Verified 2026-04-11 — a 3-line literal string landed
+# in the buffer unsubmitted.
 set -e
 
 AGENT="${1:?Usage: message-agent.sh <agent-name> \"<message>\"}"
@@ -11,10 +22,8 @@ if ! tmux has-session -t "$AGENT" 2>/dev/null; then
   exit 1
 fi
 
-# Use load-buffer + paste-buffer to avoid tmux's bracketed paste mode
-# which triggers a "Pasted text" confirmation prompt in Claude Code
-# for long messages. send-keys Enter submits after pasting.
-printf '%s' "$MSG" | tmux load-buffer -
-tmux paste-buffer -d -t "$AGENT"
+# Type the message literally, then submit.
+tmux send-keys -l -t "$AGENT" "$MSG"
 tmux send-keys -t "$AGENT" Enter
+
 echo "Sent to $AGENT"

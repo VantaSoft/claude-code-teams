@@ -1,4 +1,14 @@
 #!/bin/bash
+# Start (or restart) a single agent in a tmux session.
+#
+# FOOTGUN — DO NOT loop this over the full fleet from inside the orchestrator's
+# own session. Calling `start-agent.sh orchestrator` (or whatever agent is
+# running the loop) sends `/exit` to that tmux session, which kills the shell
+# running the loop, which means agents after it never restart. Either:
+#   (a) filter the orchestrator out of the fleet loop and restart it last
+#       from a separate detached process, or
+#   (b) wrap the loop in `nohup ... &` / `disown` so it survives.
+
 set -e
 
 AGENT_NAME="${1:?Usage: ./start-agent.sh <agent-name> [telegram] [slack]}"

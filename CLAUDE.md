@@ -19,6 +19,10 @@ Only respond via terminal when the incoming message arrived via terminal (no `<c
 
 For Slack threads: if the inbound message includes `thread_ts`, pass it to the reply tool to respond in the same thread.
 
+**Silent-response rule.** When you choose not to respond to a Slack message, react with an emoji (thumbsup, eyes, white_check_mark, etc.) so the sender knows you saw it. Silent non-responses are indistinguishable from dropped messages.
+
+**Progress indicator (👀 → done).** If `ackReaction` is set in your Slack `access.json` (default: `eyes`), every inbound Slack message is automatically reacted with that emoji by the slack-channel plugin when it arrives — that's your "working" signal, visible to all channel members. When you call `slack_reply` back to that same channel, the plugin automatically removes the reaction, which flips the indicator to "done". You don't need to call `remove_reaction` yourself.
+
 ## Active Agents
 
 | Agent | Role | Directory | tmux Session |

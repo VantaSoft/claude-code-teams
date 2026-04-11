@@ -93,7 +93,7 @@ Greet the principal briefly and walk them through the setup flow below. **When a
    
    Then run via Bash:
    ```bash
-   PROJECT_ROOT/agents/orchestrator/scripts/start-agent.sh orchestrator
+   PROJECT_ROOT/scripts/start-agent.sh orchestrator
    ```
    (Use the actual absolute path.) This starts a new tmux session with the channel enabled.
    

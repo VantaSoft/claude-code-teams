@@ -28,8 +28,8 @@ ls ~/.claude/channels/      # Telegram configs should exist
 
 Run start-agent.sh for each agent:
 ```bash
-PROJECT_ROOT/agents/orchestrator/scripts/start-agent.sh orchestrator
-PROJECT_ROOT/agents/orchestrator/scripts/start-agent.sh <other-agent>
+PROJECT_ROOT/scripts/start-agent.sh orchestrator
+PROJECT_ROOT/scripts/start-agent.sh <other-agent>
 ```
 
 ### 3. Verify agents are running

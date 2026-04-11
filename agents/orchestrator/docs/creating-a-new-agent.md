@@ -51,7 +51,7 @@ In this doc:
 
 7. **Launch the agent**:
    ```bash
-   PROJECT_ROOT/agents/orchestrator/scripts/start-agent.sh <name>
+   PROJECT_ROOT/scripts/start-agent.sh <name>
    ```
 
    **Note**: on first launch, Claude Code shows a directory trust prompt inside the new tmux session. This happens even with `--dangerously-skip-permissions`. Confirm it by sending Enter into the session:

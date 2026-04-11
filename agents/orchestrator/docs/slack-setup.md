@@ -9,7 +9,7 @@ Takes ~5 minutes per agent once you've done it once.
 
 - Bun installed (`curl -fsSL https://bun.sh/install | bash` or `brew install oven-sh/bun/bun`).
 - `mcp/slack-channel/` has dependencies: `cd PROJECT_ROOT/mcp/slack-channel && bun install`.
-- `start-agent.sh` auto-detects Slack: if `~/.claude/channels/slack-<agent>/.env` exists, it adds `--dangerously-load-development-channels server:slack` and sets `SLACK_STATE_DIR`.
+- `start-agent.sh` accepts `slack` as a positional channel arg. Pass it explicitly: `start-agent.sh <agent> slack` (or combine with other channels: `start-agent.sh <agent> slack telegram`).
 
 ## Per-agent steps
 

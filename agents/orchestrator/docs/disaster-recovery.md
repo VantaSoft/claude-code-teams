@@ -26,11 +26,12 @@ ls ~/.claude/channels/      # Telegram configs should exist
 
 ### 2. Start all agents
 
-Run start-agent.sh for each agent:
+Run start-agent.sh for each agent, passing the channel(s) it should listen on:
 ```bash
-PROJECT_ROOT/scripts/start-agent.sh orchestrator
-PROJECT_ROOT/scripts/start-agent.sh <other-agent>
+PROJECT_ROOT/scripts/start-agent.sh orchestrator telegram
+PROJECT_ROOT/scripts/start-agent.sh <other-agent> slack
 ```
+Channels: `telegram`, `discord`, `imessage`, `slack`. Pass multiple to enable several at once.
 
 ### 3. Verify agents are running
 

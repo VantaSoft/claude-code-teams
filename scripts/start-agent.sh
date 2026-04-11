@@ -1,8 +1,20 @@
 #!/bin/bash
 # Start (or restart) a single agent in a tmux session.
 #
+# Usage: start-agent.sh <agent-name> <channel> [channel...]
+# Channels: telegram, discord, imessage, slack
+#
+# Example:
+#   start-agent.sh orchestrator slack
+#   start-agent.sh orchestrator slack telegram
+#
+# Channels are explicit positional args — no auto-detection from state dirs.
+# That keeps "what channels does this agent listen on" obvious from the
+# command line and prevents stale .env files from accidentally re-enabling
+# channels you thought you'd turned off.
+#
 # FOOTGUN — DO NOT loop this over the full fleet from inside the orchestrator's
-# own session. Calling `start-agent.sh orchestrator` (or whatever agent is
+# own session. Calling `start-agent.sh orchestrator ...` (or whatever agent is
 # running the loop) sends `/exit` to that tmux session, which kills the shell
 # running the loop, which means agents after it never restart. Either:
 #   (a) filter the orchestrator out of the fleet loop and restart it last
@@ -11,80 +23,59 @@
 
 set -e
 
-AGENT_NAME="${1:?Usage: ./start-agent.sh <agent-name> [telegram] [slack]}"
+AGENT_NAME="${1:?Usage: start-agent.sh <agent-name> <channel> [channel...]}"
 shift
+
+if [ $# -eq 0 ]; then
+  echo "Error: no channels specified" >&2
+  echo "Usage: start-agent.sh <agent-name> <channel> [channel...]" >&2
+  echo "Channels: telegram, discord, imessage, slack" >&2
+  exit 1
+fi
 
 # Project root is 1 level up from this script: scripts/ -> root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 AGENT_DIR="$PROJECT_ROOT/agents/$AGENT_NAME"
-TELEGRAM_STATE="$HOME/.claude/channels/telegram-$AGENT_NAME"
-SLACK_STATE="$HOME/.claude/channels/slack-$AGENT_NAME"
-
 if [ ! -d "$AGENT_DIR" ]; then
-  echo "Error: Agent directory $AGENT_DIR does not exist"
+  echo "Error: Agent directory $AGENT_DIR does not exist" >&2
   exit 1
 fi
 
-# Determine which channels to enable.
-# If explicit channels are passed as arguments, use only those.
-# Otherwise, auto-detect based on which state dirs have a .env file.
-REQUESTED_CHANNELS=("$@")
-
 USE_TELEGRAM=false
+USE_DISCORD=false
+USE_IMESSAGE=false
 USE_SLACK=false
 
-if [ ${#REQUESTED_CHANNELS[@]} -gt 0 ]; then
-  for ch in "${REQUESTED_CHANNELS[@]}"; do
-    case "$ch" in
-      telegram) USE_TELEGRAM=true ;;
-      slack)    USE_SLACK=true ;;
-      *)        echo "Warning: unknown channel '$ch' (expected 'telegram' or 'slack')" ;;
-    esac
-  done
-else
-  # Auto-detect
-  [ -f "$TELEGRAM_STATE/.env" ] && USE_TELEGRAM=true
-  [ -f "$SLACK_STATE/.env" ] && USE_SLACK=true
-fi
+for ch in "$@"; do
+  case "$ch" in
+    telegram) USE_TELEGRAM=true ;;
+    discord)  USE_DISCORD=true ;;
+    imessage) USE_IMESSAGE=true ;;
+    slack)    USE_SLACK=true ;;
+    *)        echo "Error: unknown channel '$ch' (expected: telegram, discord, imessage, slack)" >&2; exit 1 ;;
+  esac
+done
 
-# Validate that requested channels have config
+# Validate that requested channels have config (where applicable).
+TELEGRAM_STATE="$HOME/.claude/channels/telegram-$AGENT_NAME"
+DISCORD_STATE="$HOME/.claude/channels/discord-$AGENT_NAME"
+SLACK_STATE="$HOME/.claude/channels/slack-$AGENT_NAME"
+
 if $USE_TELEGRAM && [ ! -f "$TELEGRAM_STATE/.env" ]; then
-  echo "Error: Telegram requested but config not found at $TELEGRAM_STATE/.env"
+  echo "Error: telegram requested but $TELEGRAM_STATE/.env not found" >&2
+  exit 1
+fi
+if $USE_DISCORD && [ ! -f "$DISCORD_STATE/.env" ]; then
+  echo "Error: discord requested but $DISCORD_STATE/.env not found" >&2
   exit 1
 fi
 if $USE_SLACK && [ ! -f "$SLACK_STATE/.env" ]; then
-  echo "Error: Slack requested but config not found at $SLACK_STATE/.env"
+  echo "Error: slack requested but $SLACK_STATE/.env not found" >&2
   exit 1
 fi
-
-if ! $USE_TELEGRAM && ! $USE_SLACK; then
-  echo "Error: No channels configured. Set up Telegram and/or Slack first."
-  echo "  Telegram: ~/.claude/channels/telegram-$AGENT_NAME/.env"
-  echo "  Slack:    ~/.claude/channels/slack-$AGENT_NAME/.env"
-  exit 1
-fi
-
-# Build env vars and channel flags
-ENV_VARS=""
-CHANNELS=""
-
-if $USE_TELEGRAM; then
-  ENV_VARS="TELEGRAM_STATE_DIR=$TELEGRAM_STATE"
-  CHANNELS="--channels plugin:telegram@claude-plugins-official"
-  echo "Telegram channel enabled for $AGENT_NAME"
-fi
-
-if $USE_SLACK; then
-  ENV_VARS="$ENV_VARS SLACK_STATE_DIR=$SLACK_STATE"
-  CHANNELS="$CHANNELS --dangerously-load-development-channels server:slack"
-  echo "Slack channel enabled for $AGENT_NAME"
-fi
-
-# Trim leading space from concatenation
-ENV_VARS="$(echo "$ENV_VARS" | sed 's/^ *//')"
-CHANNELS="$(echo "$CHANNELS" | sed 's/^ *//')"
+# imessage has no state dir — it reads ~/Library/Messages/chat.db directly.
 
 # Graceful shutdown: send /exit to Claude Code so it can clean up child
 # processes (MCP servers, channel plugins). Without this, orphan bun
@@ -96,11 +87,36 @@ if tmux has-session -t "$AGENT_NAME" 2>/dev/null; then
   tmux kill-session -t "$AGENT_NAME" 2>/dev/null || true
 fi
 
+# Build env vars and channel flags from the requested channels.
+ENV_VARS=""
+CHANNELS=""
+
+if $USE_TELEGRAM; then
+  ENV_VARS="$ENV_VARS TELEGRAM_STATE_DIR=$TELEGRAM_STATE"
+  CHANNELS="$CHANNELS --channels plugin:telegram@claude-plugins-official"
+fi
+if $USE_DISCORD; then
+  ENV_VARS="$ENV_VARS DISCORD_STATE_DIR=$DISCORD_STATE"
+  CHANNELS="$CHANNELS --channels plugin:discord@claude-plugins-official"
+fi
+if $USE_IMESSAGE; then
+  CHANNELS="$CHANNELS --channels plugin:imessage@claude-plugins-official"
+fi
+if $USE_SLACK; then
+  ENV_VARS="$ENV_VARS SLACK_STATE_DIR=$SLACK_STATE"
+  CHANNELS="$CHANNELS --dangerously-load-development-channels server:slack"
+fi
+
+# Trim leading whitespace from concatenation.
+ENV_VARS="$(echo "$ENV_VARS" | sed 's/^ *//')"
+CHANNELS="$(echo "$CHANNELS" | sed 's/^ *//')"
+
+echo "Starting $AGENT_NAME with channels:$([ "$USE_TELEGRAM" = true ] && echo " telegram")$([ "$USE_DISCORD" = true ] && echo " discord")$([ "$USE_IMESSAGE" = true ] && echo " imessage")$([ "$USE_SLACK" = true ] && echo " slack")"
+
 tmux new-session -d -s "$AGENT_NAME" -c "$AGENT_DIR" \
   "$ENV_VARS claude --continue $CHANNELS --dangerously-skip-permissions || $ENV_VARS claude $CHANNELS --dangerously-skip-permissions"
 
-# If Slack is enabled, poll for the dev-channel confirmation prompt and auto-approve.
-# Checks once per second for up to 60 seconds. No-op if the prompt never appears.
+# Auto-approve the dev-channel confirmation prompt (only Slack triggers it).
 if $USE_SLACK; then
   (
     approved=false

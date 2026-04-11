@@ -120,9 +120,13 @@ MEMEOF
   fi
 fi
 
-# 7. Restart agent
-echo "Restarting $AGENT..."
-"$PROJECT_ROOT/scripts/start-agent.sh" "$AGENT"
+# 7. Restart agent with slack enabled.
+# Note: this only enables slack. If $AGENT was already listening on other
+# channels (telegram, discord, imessage), you'll need to restart manually
+# with the full channel list, e.g.:
+#   $PROJECT_ROOT/scripts/start-agent.sh $AGENT slack telegram
+echo "Restarting $AGENT with slack..."
+"$PROJECT_ROOT/scripts/start-agent.sh" "$AGENT" slack
 
 # 8. Approve dev-channel prompt (first time)
 sleep 7

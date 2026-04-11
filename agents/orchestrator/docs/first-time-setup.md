@@ -91,11 +91,11 @@ Greet the principal briefly and walk them through the setup flow below. **When a
 
 7. **Relaunch under tmux** — Tell the principal "I'm going to relaunch myself under tmux now. This session will end; I'll come back in a new session with [Slack/Telegram] connected. Message me on your new bot once I'm up."
    
-   Then run via Bash:
+   Then run via Bash, passing the channel name as a positional arg:
    ```bash
-   PROJECT_ROOT/scripts/start-agent.sh orchestrator
+   PROJECT_ROOT/scripts/start-agent.sh orchestrator telegram
    ```
-   (Use the actual absolute path.) This starts a new tmux session with the channel enabled.
+   (Use the actual absolute path.) Channels: `telegram`, `discord`, `imessage`, `slack`. Pass multiple to enable several at once. This starts a new tmux session with the requested channel(s) enabled.
    
    **After launching, send Enter to the new tmux session to confirm the directory trust prompt**:
    ```bash

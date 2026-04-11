@@ -7,10 +7,11 @@ import { getAuthClient, isConfigured, getConfigDir, listAccounts } from "./auth.
 import { GmailClient } from "./gmail.js";
 import { CalendarClient } from "./calendar.js";
 import { DriveClient } from "./drive.js";
+import { DocsClient } from "./docs.js";
 
 const server = new McpServer({
   name: "google-workspace",
-  version: "1.1.0",
+  version: "1.2.0",
 });
 
 async function getClients(account: string = "default") {
@@ -19,6 +20,7 @@ async function getClients(account: string = "default") {
     gmail: new GmailClient(auth),
     calendar: new CalendarClient(auth),
     drive: new DriveClient(auth),
+    docs: new DocsClient(auth),
   };
 }
 
@@ -431,6 +433,88 @@ server.tool(
   async ({ fileId, newParentId, account }) => {
     const { drive } = await getClients(account);
     return { content: [{ type: "text", text: await drive.moveFile(fileId, newParentId) }] };
+  }
+);
+
+// ============================================================
+// DOCS TOOLS
+// ============================================================
+
+server.tool(
+  "gdoc_replace_text",
+  "Replace every occurrence of findText with replaceText in a Google Doc. Case-sensitive by default. Good for quick find/replace edits. Returns the number of occurrences changed.",
+  {
+    documentId: z.string().describe("The Google Doc ID (fileId from Drive)"),
+    findText: z.string().describe("Exact text to find. Case-sensitive unless matchCase is false."),
+    replaceText: z.string().describe("Text to replace with. Can be empty string to delete."),
+    matchCase: z.boolean().optional().default(true).describe("Match case when searching. Default: true."),
+    account: accountParam,
+  },
+  async ({ documentId, findText, replaceText, matchCase, account }) => {
+    const { docs } = await getClients(account);
+    const n = await docs.replaceText(documentId, findText, replaceText, matchCase);
+    return { content: [{ type: "text", text: `Replaced ${n} occurrence(s) of "${findText}" in document ${documentId}.` }] };
+  }
+);
+
+server.tool(
+  "gdoc_append_text",
+  "Append text to the end of a Google Doc. Inserts before the final trailing newline so the new text flows naturally.",
+  {
+    documentId: z.string().describe("The Google Doc ID"),
+    text: z.string().describe("Text to append. Include leading \\n if you want a line break before."),
+    account: accountParam,
+  },
+  async ({ documentId, text, account }) => {
+    const { docs } = await getClients(account);
+    await docs.appendText(documentId, text);
+    return { content: [{ type: "text", text: `Appended ${text.length} characters to document ${documentId}.` }] };
+  }
+);
+
+server.tool(
+  "gdoc_insert_text",
+  "Insert text at a specific character index in a Google Doc. Index 1 = start of the body (index 0 is not valid). To find the right index, read the doc first with gdrive_read — the returned plain text corresponds roughly to the document body. For most use cases, gdoc_replace_text or gdoc_append_text are simpler.",
+  {
+    documentId: z.string().describe("The Google Doc ID"),
+    index: z.number().int().min(1).describe("1-based character index where the text should be inserted"),
+    text: z.string().describe("Text to insert"),
+    account: accountParam,
+  },
+  async ({ documentId, index, text, account }) => {
+    const { docs } = await getClients(account);
+    await docs.insertText(documentId, index, text);
+    return { content: [{ type: "text", text: `Inserted ${text.length} characters at index ${index} in document ${documentId}.` }] };
+  }
+);
+
+server.tool(
+  "gdoc_batch_update",
+  "Run an arbitrary list of Google Docs API requests atomically against a doc. Use for complex edits that need formatting, inserts, deletions, or table operations in one transaction. See https://developers.google.com/docs/api/reference/rest/v1/documents/request for the request schema. Prefer the higher-level gdoc_replace_text / gdoc_append_text / gdoc_insert_text tools for simple edits.",
+  {
+    documentId: z.string().describe("The Google Doc ID"),
+    requests: z.array(z.any()).describe("Array of Docs API Request objects. Each request is an object with one of: insertText, deleteContentRange, replaceAllText, updateTextStyle, insertTableRow, etc. See the Google Docs API reference."),
+    account: accountParam,
+  },
+  async ({ documentId, requests, account }) => {
+    const { docs } = await getClients(account);
+    const res = await docs.batchUpdate(documentId, requests);
+    return { content: [{ type: "text", text: `Applied ${requests.length} request(s) to document ${documentId}.\nReplies: ${JSON.stringify(res.replies || [], null, 2)}` }] };
+  }
+);
+
+server.tool(
+  "gdoc_create",
+  "Create a new blank Google Doc with the given title. Returns the new doc's ID and a Drive link.",
+  {
+    title: z.string().describe("Title for the new doc"),
+    account: accountParam,
+  },
+  async ({ title, account }) => {
+    const { docs } = await getClients(account);
+    const doc = await docs.createDoc(title);
+    const link = `https://docs.google.com/document/d/${doc.documentId}/edit`;
+    return { content: [{ type: "text", text: `Created doc "${doc.title}" (${doc.documentId})\nLink: ${link}` }] };
   }
 );
 

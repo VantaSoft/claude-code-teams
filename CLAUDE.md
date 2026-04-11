@@ -152,5 +152,5 @@ The script looks up the tmux session by agent name and types the message in foll
 
 ## Shared Resources
 
-- MCP servers: `PROJECT_ROOT/mcp/` (Google Workspace, Slack channel)
+- MCP servers: `PROJECT_ROOT/mcp/` (Google Workspace, Slack channel, agent-history)
 - User-level config (Telegram/Slack channels, OAuth tokens): `~/.claude/channels/`, `~/.config/`

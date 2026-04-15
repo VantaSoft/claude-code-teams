@@ -16,7 +16,7 @@ Common account names: `default`, `work`, `personal`, or by company name.
 
 ## Schedule Files
 
-Create one `.md` file per recurring task under `PROJECT_ROOT/agents/orchestrator/schedules/`. Each file has YAML frontmatter with the cron cadence. Run `scripts/sync-schedules.sh` after editing.
+Create one `.md` file per recurring task under `PROJECT_ROOT/agents/orchestrator/schedules/`. Each file has YAML frontmatter with the cron cadence. Call the `fleet:sync_schedules` MCP tool after editing.
 
 ### Example: spam-triage.md (every 30 min)
 

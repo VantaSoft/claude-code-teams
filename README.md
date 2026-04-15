@@ -74,7 +74,6 @@ claude-code-teams/          # The install directory
     │       ├── restart-agent.sh
     │       ├── compact-agent.sh
     │       ├── message-agent.sh
-    │       ├── sync-schedules.sh
     │       └── create-agent.sh
     ├── google-workspace/  # Gmail, Calendar, Drive, Docs
     └── slack-channel/     # Slack integration (Socket Mode + WebClient)

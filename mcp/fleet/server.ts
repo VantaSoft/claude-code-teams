@@ -5,7 +5,7 @@
  * designated orchestrator agent.
  *
  * Tool surface:
- *   start_agent(agent, channels)   — launch or restart an agent in tmux
+ *   restart_agent(agent, channels) — launch or restart an agent in tmux
  *   compact_agent(agent)           — send /compact to an agent's tmux session
  *   message_agent(agent, message)  — type a message into an agent's tmux session
  *   context_check(agent?)          — token usage for one or all agents
@@ -42,7 +42,7 @@ import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -314,16 +314,16 @@ const mcp = new Server(
   {
     capabilities: { tools: {} },
     instructions:
-      "fleet exposes cross-agent primitives (start_agent, compact_agent, message_agent, context_check, agent_status, list_mcps) and orchestrator-only tools (sync_schedules, create_agent). start/compact/message require explicit principal approval before use on another agent — see the shared CLAUDE.md messaging-other-agents section. sync_schedules and create_agent are orchestrator-only; only the orchestrator agent should call them. Slack provisioning is not exposed as a tool on purpose; run PROJECT_ROOT/agents/orchestrator/scripts/setup-slack.sh manually when adding a new agent.",
+      "fleet exposes cross-agent primitives (restart_agent, compact_agent, message_agent, context_check, agent_status, list_mcps) and orchestrator-only tools (sync_schedules, create_agent). restart/compact/message require explicit principal approval before use on another agent — see the shared CLAUDE.md messaging-other-agents section. sync_schedules and create_agent are orchestrator-only; only the orchestrator agent should call them. Slack provisioning is not exposed as a tool on purpose; run PROJECT_ROOT/agents/orchestrator/scripts/setup-slack.sh manually when adding a new agent.",
   },
 );
 
 mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
-      name: "start_agent",
+      name: "restart_agent",
       description:
-        "Launch or restart an agent in a tmux session with the given channels (slack, telegram, discord, imessage). Channels are explicit positional args — no auto-detection. FOOTGUN: never call this on the orchestrator from inside the orchestrator's own session without wrapping in nohup; it will kill the calling shell.",
+        "Launch or restart an agent in a tmux session with the given channels (slack, telegram, discord, imessage). Safe for self-restart: an agent can call this on itself without dying. The tool spawns start-agent.sh as a detached background process with a 3-second delay, so the caller's current turn finishes cleanly before /exit fires on the target tmux session. Returns 'scheduled' immediately; actual startup happens ~15s later. Output is tailed to /tmp/start-<agent>.log.",
       inputSchema: {
         type: "object",
         properties: {
@@ -405,7 +405,7 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "create_agent",
       description:
-        "Scaffold a new agent folder at PROJECT_ROOT/agents/<agent>/ with CLAUDE.md, memory/, docs/, schedules/, and .claude/. Fails if the directory already exists. Does NOT wire up Slack or start the agent — run PROJECT_ROOT/agents/orchestrator/scripts/setup-slack.sh manually (it's kept as a standalone script because it takes Slack tokens) and then call start_agent after.",
+        "Scaffold a new agent folder at PROJECT_ROOT/agents/<agent>/ with CLAUDE.md, memory/, docs/, schedules/, and .claude/. Fails if the directory already exists. Does NOT wire up Slack or start the agent — run PROJECT_ROOT/agents/orchestrator/scripts/setup-slack.sh manually (it's kept as a standalone script because it takes Slack tokens) and then call restart_agent after.",
       inputSchema: {
         type: "object",
         properties: {
@@ -422,13 +422,39 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
   const a = (args ?? {}) as Record<string, unknown>;
 
   try {
-    if (name === "start_agent") {
+    if (name === "restart_agent") {
       const agent = String(a.agent ?? "");
       const channels = Array.isArray(a.channels) ? (a.channels as string[]) : [];
       if (!agent || channels.length === 0)
         return { content: [{ type: "text", text: "agent and at least one channel are required" }], isError: true };
-      const r = run(START_SCRIPT, [agent, ...channels]);
-      return { content: [{ type: "text", text: r.text }], isError: !r.ok };
+      // Always spawn start-agent.sh as a detached background subprocess
+      // with a 3-second sleep before it actually runs. Two reasons:
+      //
+      // 1. Self-restart safety. If an agent calls restart_agent("<self>"),
+      //    start-agent.sh sends `/exit` to that agent's own tmux session,
+      //    which would kill the shell running this MCP child process,
+      //    which would kill start-agent.sh mid-execution before it can
+      //    create the new session. Detaching via spawn({detached:true,
+      //    stdio:"ignore"}) + child.unref() severs the process from the
+      //    parent tree so the restart survives the caller's death.
+      //
+      // 2. Turn boundary. Sleeping 3s lets the caller's current turn
+      //    finish and the LLM return control before /exit fires. Without
+      //    the delay the caller can be mid-tool-result-processing when
+      //    its tmux dies, leading to weird half-processed state.
+      const logPath = `/tmp/start-${agent}.log`;
+      const shCommand = `sleep 3 && ${START_SCRIPT} ${JSON.stringify(agent)} ${channels.map((c) => JSON.stringify(c)).join(" ")} >${logPath} 2>&1`;
+      const child = spawn("/bin/bash", ["-c", shCommand], {
+        detached: true,
+        stdio: "ignore",
+      });
+      child.unref();
+      return {
+        content: [{
+          type: "text",
+          text: `scheduled restart of ${agent} with channels ${channels.join(", ")} (3s delay, detached). Output at ${logPath}. Safe for self-restart.`,
+        }],
+      };
     }
 
     if (name === "compact_agent") {

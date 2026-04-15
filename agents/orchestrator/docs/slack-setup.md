@@ -34,7 +34,7 @@ PROJECT_ROOT/agents/orchestrator/scripts/setup-slack.sh <agent> <xoxb-token> <xa
 
 This one command:
 - Creates `~/.claude/channels/slack-<agent>/` with `.env` (tokens) and `access.json` (DM allowlist + channels), both chmod 600
-- Merges a `slack` MCP server entry into the agent's `.mcp.json` (the agent is expected to already have one declaring fleet/agent-history/google-workspace — create it from `.mcp.json.example` if missing)
+- Merges a `slack` MCP server entry into the agent's `.mcp.json` (the agent is expected to already have one declaring fleet/google-workspace — create it from `.mcp.json.example` if missing)
 - Restarts the agent via `restart-agent.sh`
 - Auto-approves the one-time dev-channel confirmation prompt
 

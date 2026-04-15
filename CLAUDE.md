@@ -152,5 +152,5 @@ Under the hood, the tool uses `tmux send-keys -l` to type the message literally,
 
 ## Shared Resources
 
-- MCP servers: `PROJECT_ROOT/mcp/` (Google Workspace, Slack channel, agent-history, fleet)
+- MCP servers: `PROJECT_ROOT/mcp/` (Google Workspace, Slack channel, fleet)
 - User-level config (Telegram/Slack channels, OAuth tokens): `~/.claude/channels/`, `~/.config/`

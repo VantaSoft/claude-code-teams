@@ -13,6 +13,7 @@
  *   list_mcps(agent?, verbose?)    — MCP servers each agent has configured
  *   list_schedules(agent?)         — list cron schedules across the fleet
  *   sync_schedules()               — re-install MANAGED crontab block
+ *   history_search(agent, pattern) — grep an agent's past session jsonl
  *   create_agent(agent)            — scaffold a new PROJECT_ROOT/agents/<agent>/
  *
  * Shell scripts for tmux orchestration (restart/compact/message/create
@@ -45,9 +46,10 @@ import {
   CallToolRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { spawnSync } from "node:child_process";
-import { closeSync, openSync, readdirSync, readFileSync, readSync, statSync } from "node:fs";
+import { closeSync, createReadStream, openSync, readdirSync, readFileSync, readSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -454,6 +456,180 @@ function listMcps(agent?: string, verbose = false): string {
   return lines.join("\n");
 }
 
+// --- history_search ---------------------------------------------------
+//
+// Grep an agent's Claude Code session jsonl for past events. Useful for
+// recalling things pushed out of live context by compaction or time.
+// Merged in from the former stand-alone `agent-history` MCP.
+
+type JsonlEntry = Record<string, any>;
+
+const HISTORY_DEFAULT_TYPES = new Set(["user", "assistant", "tool_result"]);
+const HISTORY_MAX_SCANNED = 200_000;
+const HISTORY_MAX_PATTERN_LENGTH = 500;
+
+function historyJsonlFiles(agent: string): string[] {
+  const dir = join(PROJECTS_DIR, `${PROJECT_DIR_PREFIX}${agent}`);
+  try {
+    const entries = readdirSync(dir)
+      .filter((f) => f.endsWith(".jsonl"))
+      .map((f) => {
+        const path = join(dir, f);
+        return { path, mtime: statSync(path).mtimeMs };
+      });
+    entries.sort((a, b) => b.mtime - a.mtime);
+    return entries.map((e) => e.path);
+  } catch {
+    return [];
+  }
+}
+
+async function* streamJsonl(path: string): AsyncGenerator<JsonlEntry> {
+  const stream = createReadStream(path, { encoding: "utf8" });
+  const rl = createInterface({ input: stream, crlfDelay: Infinity });
+  try {
+    for await (const line of rl) {
+      if (!line) continue;
+      try {
+        yield JSON.parse(line);
+      } catch {
+        // Ignore malformed lines (partial writes at the tail, etc.).
+      }
+    }
+  } finally {
+    rl.close();
+  }
+}
+
+function historyEntryText(entry: JsonlEntry): string {
+  const parts: string[] = [];
+  const pushContent = (c: any): void => {
+    if (c == null) return;
+    if (typeof c === "string") { parts.push(c); return; }
+    if (Array.isArray(c)) { for (const item of c) pushContent(item); return; }
+    if (typeof c === "object") {
+      if (c.type === "text" && typeof c.text === "string") parts.push(c.text);
+      else if (c.type === "tool_use") {
+        if (c.name) parts.push(`<tool_use:${c.name}>`);
+        if (c.input) parts.push(JSON.stringify(c.input));
+      } else if (c.type === "tool_result") {
+        if (c.tool_use_id) parts.push(`<tool_result:${c.tool_use_id}>`);
+        pushContent(c.content);
+      } else if (c.type === "thinking" && typeof c.thinking === "string") {
+        parts.push(c.thinking);
+      } else if (c.type === "image") {
+        parts.push("<image>");
+      } else {
+        const fb = JSON.stringify(c);
+        parts.push(fb.length > 2000 ? fb.slice(0, 2000) : fb);
+      }
+    }
+  };
+  if (entry.message) pushContent(entry.message.content);
+  else if (typeof entry.content === "string") parts.push(entry.content);
+  else if (entry.content != null) pushContent(entry.content);
+  return parts.join(" ");
+}
+
+function historyEntryTimestamp(entry: JsonlEntry): string | null {
+  return entry.timestamp || entry.message?.timestamp || null;
+}
+
+function historyEntryRole(entry: JsonlEntry): string {
+  return entry.type || entry.message?.role || "unknown";
+}
+
+function formatHistoryEntry(entry: JsonlEntry, maxChars = 400): string {
+  const ts = historyEntryTimestamp(entry) ?? "no-ts";
+  const role = historyEntryRole(entry);
+  let text = historyEntryText(entry);
+  if (text.length > maxChars) text = text.slice(0, maxChars) + "…";
+  text = text.replace(/\s+/g, " ").trim();
+  return `[${ts}] [${role}] ${text}`;
+}
+
+type HistorySearchParams = {
+  agent: string;
+  pattern: string;
+  since?: string;
+  until?: string;
+  types?: string[];
+  raw?: boolean;
+  limit?: number;
+  regex?: boolean;
+};
+
+async function historySearch(params: HistorySearchParams): Promise<string> {
+  const { agent, pattern } = params;
+  const limit = params.limit ?? 50;
+
+  if (!isValidAgentName(agent)) return `Invalid agent name "${agent}".`;
+  if (!pattern) return "pattern is required";
+  if (pattern.length > HISTORY_MAX_PATTERN_LENGTH) {
+    return `Pattern too long (${pattern.length} chars). Max: ${HISTORY_MAX_PATTERN_LENGTH}.`;
+  }
+
+  const typeFilter =
+    params.raw || params.types?.includes("*")
+      ? null
+      : new Set(params.types ?? Array.from(HISTORY_DEFAULT_TYPES));
+
+  const sinceMs = params.since ? Date.parse(params.since) : -Infinity;
+  const untilMs = params.until ? Date.parse(params.until) : Infinity;
+
+  const files = historyJsonlFiles(agent);
+  if (files.length === 0) {
+    return `No jsonl files found for agent "${agent}" at ${join(PROJECTS_DIR, `${PROJECT_DIR_PREFIX}${agent}`)}`;
+  }
+
+  let matcher: (s: string) => boolean;
+  if (params.regex) {
+    try {
+      const re = new RegExp(pattern, "i");
+      matcher = (s) => re.test(s);
+    } catch (e) {
+      return `Invalid regex: ${(e as Error).message}`;
+    }
+  } else {
+    const needle = pattern.toLowerCase();
+    matcher = (s) => s.toLowerCase().includes(needle);
+  }
+
+  const matches: JsonlEntry[] = [];
+  let scanned = 0;
+  let truncatedScan = false;
+
+  outer: for (const file of files) {
+    for await (const entry of streamJsonl(file)) {
+      scanned++;
+      if (scanned > HISTORY_MAX_SCANNED) { truncatedScan = true; break outer; }
+      if (typeFilter && !typeFilter.has(historyEntryRole(entry))) continue;
+      const ts = historyEntryTimestamp(entry);
+      if (params.since || params.until) {
+        if (!ts) continue;
+        const tMs = Date.parse(ts);
+        if (Number.isNaN(tMs) || tMs < sinceMs || tMs >= untilMs) continue;
+      }
+      const text = historyEntryText(entry);
+      if (!text) continue;
+      if (!matcher(text)) continue;
+      matches.push(entry);
+      if (matches.length >= limit) break outer;
+    }
+  }
+
+  const scanNote = truncatedScan ? ` (scan capped at ${HISTORY_MAX_SCANNED})` : "";
+  if (matches.length === 0) {
+    return `No matches for "${pattern}" in ${files.length} jsonl file(s) (${scanned} entries scanned${scanNote}).`;
+  }
+  const lines: string[] = [
+    `Found ${matches.length} match(es) for "${pattern}" in ${files.length} jsonl file(s) (${scanned} entries scanned${scanNote}).`,
+    "",
+  ];
+  for (const entry of matches) lines.push(formatHistoryEntry(entry));
+  return lines.join("\n");
+}
+
 // --- MCP plumbing ------------------------------------------------------
 
 const mcp = new Server(
@@ -461,7 +637,7 @@ const mcp = new Server(
   {
     capabilities: { tools: {} },
     instructions:
-      "fleet exposes cross-agent primitives (restart_agent, compact_agent, message_agent, context_check, agent_status, list_mcps, list_schedules) and orchestrator-only tools (sync_schedules, create_agent). restart/compact/message require explicit principal approval before use on another agent — see the shared CLAUDE.md messaging-other-agents section. sync_schedules and create_agent are orchestrator-only; only the orchestrator agent should call them. Slack provisioning is not exposed as a tool on purpose; run PROJECT_ROOT/agents/orchestrator/scripts/setup-slack.sh manually when adding a new agent.",
+      "fleet exposes cross-agent primitives (restart_agent, compact_agent, message_agent, context_check, agent_status, list_mcps, list_schedules, history_search) and orchestrator-only tools (sync_schedules, create_agent). restart/compact/message require explicit principal approval before use on another agent — see the shared CLAUDE.md messaging-other-agents section. sync_schedules and create_agent are orchestrator-only; only the orchestrator agent should call them. history_search greps an agent's Claude Code session jsonl so you can recall events pushed out of live context by compaction or time. Slack provisioning is not exposed as a tool on purpose; run PROJECT_ROOT/agents/orchestrator/scripts/setup-slack.sh manually when adding a new agent.",
   },
 );
 
@@ -558,6 +734,25 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           agent: { type: "string", description: "Optional agent name. Omit to list schedules for all agents." },
         },
+      },
+    },
+    {
+      name: "history_search",
+      description:
+        "Search an agent's Claude Code session history (the jsonl files under ~/.claude/projects/) for past events. Returns matching entries with timestamps, role, and a truncated excerpt. Useful for recalling things an agent has forgotten due to compaction or long conversations. Case-insensitive substring match by default; set regex=true for a JavaScript regex. Default entry types: user, assistant, tool_result — pass raw=true or types=['*'] to include bookkeeping entry types.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          agent: { type: "string", description: 'Agent name (e.g. "orchestrator"). Matches the folder under PROJECT_ROOT/agents/.' },
+          pattern: { type: "string", description: "Text pattern. Case-insensitive substring match by default." },
+          since: { type: "string", description: 'Optional ISO 8601 timestamp. Only entries with timestamps >= this (e.g. "2026-04-10T00:00:00Z").' },
+          until: { type: "string", description: "Optional ISO 8601 timestamp. Only entries with timestamps < this." },
+          types: { type: "array", items: { type: "string" }, description: 'Entry types to include. Default ["user","assistant","tool_result"]. ["*"] = all.' },
+          raw: { type: "boolean", description: "Shortcut for types=['*']. Include all bookkeeping entry types." },
+          limit: { type: "integer", description: "Max matches. Default 50." },
+          regex: { type: "boolean", description: "Treat pattern as a JavaScript regex (case-insensitive). Default false." },
+        },
+        required: ["agent", "pattern"],
       },
     },
     {
@@ -658,6 +853,24 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
       if (agent && !isValidAgentName(agent))
         return { content: [{ type: "text", text: `invalid agent name: ${agent}` }], isError: true };
       return { content: [{ type: "text", text: listSchedules(agent) }] };
+    }
+
+    if (name === "history_search") {
+      const agent = String(a.agent ?? "");
+      const pattern = String(a.pattern ?? "");
+      if (!agent || !pattern)
+        return { content: [{ type: "text", text: "agent and pattern are required" }], isError: true };
+      const result = await historySearch({
+        agent,
+        pattern,
+        since: a.since != null ? String(a.since) : undefined,
+        until: a.until != null ? String(a.until) : undefined,
+        types: Array.isArray(a.types) ? (a.types as string[]) : undefined,
+        raw: a.raw === true,
+        limit: typeof a.limit === "number" ? a.limit : undefined,
+        regex: a.regex === true,
+      });
+      return { content: [{ type: "text", text: result }] };
     }
 
     if (name === "create_agent") {

@@ -92,7 +92,9 @@ cat > "$AGENT_DIR/.claude/settings.local.json" << EOF
 }
 EOF
 
-# Scaffold a per-agent .mcp.json with fleet + agent-history + google-workspace.
+# Scaffold a per-agent .mcp.json with fleet + google-workspace. History
+# search used to live in its own `agent-history` MCP but has been merged
+# into fleet as the `history_search` tool.
 # Per-agent .mcp.json is the single source of truth for which MCP servers an
 # agent loads. We no longer rely on a root-level .mcp.json being inherited
 # via Claude Code's parent-directory walk — list_mcps and other tools that
@@ -106,10 +108,6 @@ cat > "$AGENT_DIR/.mcp.json" << EOF
     "fleet": {
       "command": "bun",
       "args": ["$PROJECT_ROOT/mcp/fleet/server.ts"]
-    },
-    "agent-history": {
-      "command": "bun",
-      "args": ["$PROJECT_ROOT/mcp/agent-history/server.ts"]
     },
     "google-workspace": {
       "command": "node",

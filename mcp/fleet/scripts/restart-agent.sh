@@ -1,41 +1,40 @@
 #!/bin/bash
-# Start (or restart) a single agent in a tmux session.
+# Launch or restart a single agent in a tmux session.
 #
-# Usage: start-agent.sh <agent-name> <channel> [channel...]
+# Usage: restart-agent.sh <agent-name> <channel> [channel...]
 # Channels: telegram, discord, imessage, slack
 #
 # Example:
-#   start-agent.sh orchestrator slack
-#   start-agent.sh orchestrator slack telegram
+#   restart-agent.sh orchestrator slack
+#   restart-agent.sh orchestrator slack telegram
 #
 # Channels are explicit positional args — no auto-detection from state dirs.
 # That keeps "what channels does this agent listen on" obvious from the
 # command line and prevents stale .env files from accidentally re-enabling
 # channels you thought you'd turned off.
 #
-# FOOTGUN — DO NOT loop this over the full fleet from inside the orchestrator's
-# own session. Calling `start-agent.sh orchestrator ...` (or whatever agent is
-# running the loop) sends `/exit` to that tmux session, which kills the shell
-# running the loop, which means agents after it never restart. Either:
-#   (a) filter the orchestrator out of the fleet loop and restart it last
-#       from a separate detached process, or
-#   (b) wrap the loop in `nohup ... &` / `disown` so it survives.
+# Self-restart is safe. If the target session already exists, the script
+# uses `tmux respawn-window -k` to atomically kill the old claude and
+# launch the new one in place — tmux performs the kill+respawn in its
+# own process, so the caller dying mid-call doesn't prevent the
+# replacement from coming up. The dev-channel auto-approve loop runs
+# as its own detached tmux session that survives this script dying.
 
 set -e
 
-AGENT_NAME="${1:?Usage: start-agent.sh <agent-name> <channel> [channel...]}"
+AGENT_NAME="${1:?Usage: restart-agent.sh <agent-name> <channel> [channel...]}"
 shift
 
 if [ $# -eq 0 ]; then
   echo "Error: no channels specified" >&2
-  echo "Usage: start-agent.sh <agent-name> <channel> [channel...]" >&2
+  echo "Usage: restart-agent.sh <agent-name> <channel> [channel...]" >&2
   echo "Channels: telegram, discord, imessage, slack" >&2
   exit 1
 fi
 
-# Project root is 1 level up from this script: scripts/ -> root
+# Project root is 3 levels up from this script: scripts/ -> fleet/ -> mcp/ -> root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 AGENT_DIR="$PROJECT_ROOT/agents/$AGENT_NAME"
 if [ ! -d "$AGENT_DIR" ]; then
@@ -77,16 +76,6 @@ if $USE_SLACK && [ ! -f "$SLACK_STATE/.env" ]; then
 fi
 # imessage has no state dir — it reads ~/Library/Messages/chat.db directly.
 
-# Graceful shutdown: send /exit to Claude Code so it can clean up child
-# processes (MCP servers, channel plugins). Without this, orphan bun
-# processes hold Socket Mode connections and block subsequent restarts.
-if tmux has-session -t "$AGENT_NAME" 2>/dev/null; then
-  echo "Gracefully stopping existing session..."
-  tmux send-keys -t "$AGENT_NAME" "/exit" Enter 2>/dev/null || true
-  sleep 3
-  tmux kill-session -t "$AGENT_NAME" 2>/dev/null || true
-fi
-
 # Build env vars and channel flags from the requested channels.
 ENV_VARS=""
 CHANNELS=""
@@ -111,29 +100,36 @@ fi
 ENV_VARS="$(echo "$ENV_VARS" | sed 's/^ *//')"
 CHANNELS="$(echo "$CHANNELS" | sed 's/^ *//')"
 
+CLAUDE_CMD="$ENV_VARS claude --continue $CHANNELS --dangerously-skip-permissions || $ENV_VARS claude $CHANNELS --dangerously-skip-permissions"
+
 echo "Starting $AGENT_NAME with channels:$([ "$USE_TELEGRAM" = true ] && echo " telegram")$([ "$USE_DISCORD" = true ] && echo " discord")$([ "$USE_IMESSAGE" = true ] && echo " imessage")$([ "$USE_SLACK" = true ] && echo " slack")"
 
-tmux new-session -d -s "$AGENT_NAME" -c "$AGENT_DIR" \
-  "$ENV_VARS claude --continue $CHANNELS --dangerously-skip-permissions || $ENV_VARS claude $CHANNELS --dangerously-skip-permissions"
-
 # Auto-approve the dev-channel confirmation prompt (only Slack triggers it).
+# Spawned BEFORE respawn/new-session so it's already running by the time
+# the new claude process shows the prompt. Runs as its own detached tmux
+# session so it survives this script dying (which happens on self-restart
+# when tmux kills the calling claude during respawn-window).
 if $USE_SLACK; then
-  (
-    approved=false
-    for i in $(seq 1 60); do
-      if tmux capture-pane -t "$AGENT_NAME" -p 2>/dev/null | grep -qE "Enter to confirm|local development"; then
-        tmux send-keys -t "$AGENT_NAME" Enter
-        echo "Auto-approved dev-channel prompt for $AGENT_NAME"
-        approved=true
-        break
-      fi
-      sleep 1
-    done
-    if ! $approved; then
-      echo "Warning: dev-channel prompt not detected after 60s for $AGENT_NAME."
-      echo "  The agent may be waiting for manual approval. Try: tmux send-keys -t $AGENT_NAME Enter"
-    fi
-  ) &
+  AA_SESSION="autoapprove-$AGENT_NAME-$$"
+  tmux new-session -d -s "$AA_SESSION" -c /tmp \
+    "for i in \$(seq 1 60); do if tmux capture-pane -t $AGENT_NAME -p 2>/dev/null | grep -qE 'Enter to confirm|local development'; then tmux send-keys -t $AGENT_NAME Enter; break; fi; sleep 1; done"
+fi
+
+# Two paths: existing session → respawn the window in place (safe for
+# self-restart because tmux handles the kill+respawn atomically in its
+# own process, not ours); missing session → create from scratch.
+#
+# Respawn-window preserves the tmux session, the window, and crucially
+# the parent-process chain rooted in the tmux server — so TCC grants
+# like Full Disk Access keep flowing into the new claude process.
+# The previous /exit + kill-session + new-session dance suffered two
+# problems: self-restart killed the MCP subprocess running this script
+# before it could complete, and the new session sometimes re-parented
+# to launchd, breaking TCC inheritance.
+if tmux has-session -t "$AGENT_NAME" 2>/dev/null; then
+  tmux respawn-window -k -t "$AGENT_NAME" "$CLAUDE_CMD"
+else
+  tmux new-session -d -s "$AGENT_NAME" -c "$AGENT_DIR" "$CLAUDE_CMD"
 fi
 
 echo "$AGENT_NAME is running in tmux session '$AGENT_NAME'"

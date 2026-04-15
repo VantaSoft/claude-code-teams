@@ -93,7 +93,7 @@ Greet the principal briefly and walk them through the setup flow below. **When a
    
    Then run via Bash, passing the channel name as a positional arg:
    ```bash
-   PROJECT_ROOT/scripts/start-agent.sh orchestrator telegram
+   PROJECT_ROOT/mcp/fleet/scripts/restart-agent.sh orchestrator telegram
    ```
    (Use the actual absolute path.) Channels: `telegram`, `discord`, `imessage`, `slack`. Pass multiple to enable several at once. This starts a new tmux session with the requested channel(s) enabled.
    

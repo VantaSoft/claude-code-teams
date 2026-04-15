@@ -26,10 +26,10 @@ ls ~/.claude/channels/      # Telegram configs should exist
 
 ### 2. Start all agents
 
-Run start-agent.sh for each agent, passing the channel(s) it should listen on:
+Run restart-agent.sh for each agent, passing the channel(s) it should listen on:
 ```bash
-PROJECT_ROOT/scripts/start-agent.sh orchestrator telegram
-PROJECT_ROOT/scripts/start-agent.sh <other-agent> slack
+PROJECT_ROOT/mcp/fleet/scripts/restart-agent.sh orchestrator telegram
+PROJECT_ROOT/mcp/fleet/scripts/restart-agent.sh <other-agent> slack
 ```
 Channels: `telegram`, `discord`, `imessage`, `slack`. Pass multiple to enable several at once.
 
@@ -59,7 +59,7 @@ Message each bot on Telegram to confirm they respond.
 
 | What | Impact | Recovery |
 |------|--------|----------|
-| tmux sessions | All agents go down | Run start-agent.sh for each |
+| tmux sessions | All agents go down | Run restart-agent.sh for each |
 | Conversation context | --continue may not find last session | Agents start fresh if session files lost |
 | MCP server dist/ | Build artifacts not git tracked | `cd PROJECT_ROOT/mcp/<server> && npm install && npx tsc` |
 | In-flight work | Any mid-task work is lost | Agents resume from last known state |

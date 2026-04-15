@@ -9,7 +9,7 @@ Takes ~5 minutes per agent once you've done it once.
 
 - Bun installed (`curl -fsSL https://bun.sh/install | bash` or `brew install oven-sh/bun/bun`).
 - `mcp/slack-channel/` has dependencies: `cd PROJECT_ROOT/mcp/slack-channel && bun install`.
-- `start-agent.sh` accepts `slack` as a positional channel arg. Pass it explicitly: `start-agent.sh <agent> slack` (or combine with other channels: `start-agent.sh <agent> slack telegram`).
+- `restart-agent.sh` accepts `slack` as a positional channel arg. Pass it explicitly: `restart-agent.sh <agent> slack` (or combine with other channels: `restart-agent.sh <agent> slack telegram`).
 
 ## Per-agent steps
 
@@ -35,7 +35,7 @@ PROJECT_ROOT/agents/orchestrator/scripts/setup-slack.sh <agent> <xoxb-token> <xa
 This one command:
 - Creates `~/.claude/channels/slack-<agent>/` with `.env` (tokens) and `access.json` (DM allowlist + channels), both chmod 600
 - Merges a `slack` MCP server entry into the agent's `.mcp.json`
-- Restarts the agent via `start-agent.sh`
+- Restarts the agent via `restart-agent.sh`
 - Auto-approves the one-time dev-channel confirmation prompt
 
 ### 3. Live test
@@ -78,7 +78,7 @@ Each Slack-enabled agent runs 2 extra bun processes (in addition to Telegram's 2
 
 ### Graceful shutdown
 
-`start-agent.sh` sends `/exit` to Claude Code before killing the tmux session. This gives Claude Code a chance to shut down its child MCP processes cleanly. Without this, orphan bun processes hold the Socket Mode WebSocket and block subsequent restarts.
+`restart-agent.sh` uses `tmux respawn-window -k` to atomically kill the old claude and launch the new one in place when the session already exists. Self-restart is safe because tmux handles the kill+respawn in its own process — the caller dying mid-call doesn't prevent the replacement from coming up. The new claude loads with `--continue` and picks up the prior session history.
 
 **Never use `killall bun`** — it kills ALL agents' MCP processes, causing a fleet-wide crash.
 
@@ -89,4 +89,4 @@ Each Slack-enabled agent runs 2 extra bun processes (in addition to Telegram's 2
 - **"Development channel" prompt blocks startup:** Approve remotely with `tmux send-keys -t <agent> Enter`. One-time per agent.
 - **Bot doesn't respond in a channel:** Ensure the bot is invited to the channel (`/invite @bot`) AND the channel ID is in access.json's `channels` array.
 - **Bot doesn't respond to DMs:** Check `dmPolicy` is `"allowlist"` and the user's ID is in `allowFromUsers`. Also verify `messages_tab_enabled: true` in the app manifest.
-- **Inbound dead, no errors:** Check for orphan bun processes. Restart the agent with `start-agent.sh` (uses `/exit` for clean shutdown).
+- **Inbound dead, no errors:** Check for orphan bun processes. Restart the agent with `restart-agent.sh` (uses `tmux respawn-window -k` for a clean in-place relaunch).

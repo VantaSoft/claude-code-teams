@@ -42,7 +42,7 @@ import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -60,7 +60,7 @@ const PROJECTS_DIR = join(homedir(), ".claude", "projects");
 const PROJECT_DIR_PREFIX = AGENTS_DIR.replace(/\//g, "-") + "-";
 const CONTEXT_WINDOW = Number(process.env.CONTEXT_WINDOW ?? 1_000_000);
 
-const START_SCRIPT = join(SCRIPTS_DIR, "start-agent.sh");
+const RESTART_SCRIPT = join(SCRIPTS_DIR, "restart-agent.sh");
 const COMPACT_SCRIPT = join(SCRIPTS_DIR, "compact-agent.sh");
 const MESSAGE_SCRIPT = join(SCRIPTS_DIR, "message-agent.sh");
 const SYNC_SCHEDULES = join(SCRIPTS_DIR, "sync-schedules.sh");
@@ -323,7 +323,7 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "restart_agent",
       description:
-        "Launch or restart an agent in a tmux session with the given channels (slack, telegram, discord, imessage). Safe for self-restart: an agent can call this on itself without dying. The tool spawns start-agent.sh as a detached background process with a 3-second delay, so the caller's current turn finishes cleanly before /exit fires on the target tmux session. Returns 'scheduled' immediately; actual startup happens ~15s later. Output is tailed to /tmp/start-<agent>.log.",
+        "Launch or restart an agent in a tmux session with the given channels (slack, telegram, discord, imessage). Safe for self-restart: when the target session already exists, restart-agent.sh uses `tmux respawn-window -k` to atomically kill the old claude and launch the new one in place — tmux handles the kill+respawn in its own process, so the caller dying mid-call doesn't prevent the replacement from coming up. The new claude loads with `--continue` and picks up the prior session history. The dev-channel auto-approve loop runs in a detached sibling tmux session that survives the caller's death.",
       inputSchema: {
         type: "object",
         properties: {
@@ -427,34 +427,16 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
       const channels = Array.isArray(a.channels) ? (a.channels as string[]) : [];
       if (!agent || channels.length === 0)
         return { content: [{ type: "text", text: "agent and at least one channel are required" }], isError: true };
-      // Always spawn start-agent.sh as a detached background subprocess
-      // with a 3-second sleep before it actually runs. Two reasons:
-      //
-      // 1. Self-restart safety. If an agent calls restart_agent("<self>"),
-      //    start-agent.sh sends `/exit` to that agent's own tmux session,
-      //    which would kill the shell running this MCP child process,
-      //    which would kill start-agent.sh mid-execution before it can
-      //    create the new session. Detaching via spawn({detached:true,
-      //    stdio:"ignore"}) + child.unref() severs the process from the
-      //    parent tree so the restart survives the caller's death.
-      //
-      // 2. Turn boundary. Sleeping 3s lets the caller's current turn
-      //    finish and the LLM return control before /exit fires. Without
-      //    the delay the caller can be mid-tool-result-processing when
-      //    its tmux dies, leading to weird half-processed state.
-      const logPath = `/tmp/start-${agent}.log`;
-      const shCommand = `sleep 3 && ${START_SCRIPT} ${JSON.stringify(agent)} ${channels.map((c) => JSON.stringify(c)).join(" ")} >${logPath} 2>&1`;
-      const child = spawn("/bin/bash", ["-c", shCommand], {
-        detached: true,
-        stdio: "ignore",
-      });
-      child.unref();
-      return {
-        content: [{
-          type: "text",
-          text: `scheduled restart of ${agent} with channels ${channels.join(", ")} (3s delay, detached). Output at ${logPath}. Safe for self-restart.`,
-        }],
-      };
+      // Self-restart is safe. restart-agent.sh uses `tmux respawn-window
+      // -k` when the target session already exists, which kills the old
+      // claude and launches the new one atomically from tmux's own
+      // process — not from this MCP subprocess. So even if the caller
+      // is the target and dies mid-call, tmux has already committed to
+      // spawning the replacement. The dev-channel auto-approve loop
+      // runs in its own detached tmux session that survives this
+      // script dying for the same reason.
+      const r = run(RESTART_SCRIPT, [agent, ...channels]);
+      return { content: [{ type: "text", text: r.text }], isError: !r.ok };
     }
 
     if (name === "compact_agent") {

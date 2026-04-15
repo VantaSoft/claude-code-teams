@@ -71,7 +71,7 @@ claude-code-teams/          # The install directory
     ├── fleet/              # Cross-agent primitives + orchestrator tools
     │   ├── server.ts       # MCP server (TypeScript)
     │   └── scripts/        # Shell scripts the fleet MCP shells out to
-    │       ├── start-agent.sh
+    │       ├── restart-agent.sh
     │       ├── compact-agent.sh
     │       ├── message-agent.sh
     │       ├── sync-schedules.sh

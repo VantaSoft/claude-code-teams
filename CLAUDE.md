@@ -64,8 +64,8 @@ cron: "*/30 * * * *"
 **How it works:**
 - An OS-level crontab entry per schedule file types its prompt into the agent's tmux session on the specified cadence
 - The agent reads the file and executes the tasks
-- `PROJECT_ROOT/agents/orchestrator/scripts/sync-schedules.sh` reads all `PROJECT_ROOT/agents/*/schedules/*.md`, extracts cron frontmatter, and writes the crontab MANAGED block
-- **Only the orchestrator runs sync-schedules.sh** — it's the orchestrator's responsibility. Other agents create their own schedule files and ask the orchestrator to sync.
+- The `fleet` MCP's `sync_schedules` tool reads all `PROJECT_ROOT/agents/*/schedules/*.md`, extracts cron frontmatter, and writes the crontab MANAGED block
+- **Only the orchestrator runs sync_schedules** — it's the orchestrator's responsibility. Other agents create their own schedule files and ask the orchestrator to sync.
 
 **Time zone**: crontab runs in system timezone. Document any conversion (e.g. PT → UTC) in a frontmatter comment.
 
@@ -73,11 +73,11 @@ cron: "*/30 * * * *"
 
 **To add a schedule (as a non-orchestrator agent):**
 1. Create `PROJECT_ROOT/agents/<your-agent>/schedules/<name>.md` with cron frontmatter
-2. Ask the orchestrator to run `sync-schedules.sh`
+2. Ask the orchestrator to call `fleet:sync_schedules`
 
 **To add a schedule (as the orchestrator):**
 1. Create the file
-2. Run `PROJECT_ROOT/agents/orchestrator/scripts/sync-schedules.sh` yourself
+2. Call the `fleet:sync_schedules` tool
 
 ## Agent Folder Structure
 
@@ -138,19 +138,19 @@ See `hooks/README.md` for details and adding new hooks.
 
 ## Messaging Other Agents
 
-Agents can send one-line messages into each other's tmux sessions. This is how cross-agent coordination happens (e.g. a marketing agent asks the orchestrator to sync schedules; the orchestrator asks a coding agent to clone a repo).
+Agents can send one-line messages into each other's tmux sessions via the `fleet` MCP's `message_agent` tool. This is how cross-agent coordination happens (e.g. a marketing agent asks the orchestrator to sync schedules; the orchestrator asks a coding agent to clone a repo).
 
-```bash
-PROJECT_ROOT/scripts/message-agent.sh <agent-name> "<message>"
+```
+fleet:message_agent({ agent: "<name>", message: "<message>" })
 ```
 
-The script looks up the tmux session by agent name and types the message in followed by Enter. The receiving agent sees the text as terminal input (no `<channel>` tag), processes it, and responds in its own terminal. Use this pattern — do NOT try to call another agent's Telegram bot, edit their files directly, or talk to their tmux session yourself.
+Under the hood, the tool uses `tmux send-keys -l` to type the message literally, pauses 5 seconds to let Claude Code's input field accept the text (otherwise the trailing Enter can race the input if the target agent is mid-turn and queue the prompt as unsent draft), then submits. The receiving agent sees the text as terminal input (no `<channel>` tag), processes it, and responds in its own terminal. Use this MCP tool — do NOT try to call another agent's Telegram/Slack bot, edit their files directly, or talk to their tmux session yourself.
 
-**Message style:** Write it like a clear one-line instruction or ask, e.g. "<agent-A> added `PROJECT_ROOT/agents/<agent-A>/schedules/<name>.md` (cron: 0 14 * * 1). Please run `PROJECT_ROOT/agents/orchestrator/scripts/sync-schedules.sh` to install the cron entry." The receiver is another Claude agent and will read, reason, and act.
+**Message style:** Write it like a clear one-line instruction or ask, e.g. "<agent-A> added `PROJECT_ROOT/agents/<agent-A>/schedules/<name>.md` (cron: 0 14 * * 1). Please call `fleet:sync_schedules` to install the cron entry." The receiver is another Claude agent and will read, reason, and act.
 
 **When to use:** Cross-agent dependencies (schedule syncs, repo clones, handoffs), status pings, or any workflow the other agent owns. Use it sparingly — each message interrupts the other agent's turn.
 
 ## Shared Resources
 
-- MCP servers: `PROJECT_ROOT/mcp/` (Google Workspace, Slack channel, agent-history)
+- MCP servers: `PROJECT_ROOT/mcp/` (Google Workspace, Slack channel, agent-history, fleet)
 - User-level config (Telegram/Slack channels, OAuth tokens): `~/.claude/channels/`, `~/.config/`

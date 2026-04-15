@@ -7,7 +7,7 @@
 
 set -e
 
-# Project root is 3 levels up from this script: scripts/ -> orchestrator/ -> agents/ -> root
+# Project root is 3 levels up from this script: scripts/ -> fleet/ -> mcp/ -> root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
@@ -46,7 +46,11 @@ for agent_dir in "$AGENTS_DIR"/*/; do
     fi
 
     abs_path=$(readlink -f "$schedule_file")
-    new_block+=$'\n'"$cron /usr/bin/tmux send-keys -t $agent 'Read $abs_path and execute tasks defined in it.' Enter"
+    # Type the prompt literally, pause 5s so Claude Code accepts the input
+    # (avoids the submit-Enter racing the input field when the agent is
+    # mid-turn, which leaves the prompt queued as unsent draft), then Enter.
+    prompt="Read $abs_path and execute tasks defined in it."
+    new_block+=$'\n'"$cron /bin/sh -c \"/usr/bin/tmux send-keys -l -t $agent '$prompt'; sleep 5; /usr/bin/tmux send-keys -t $agent Enter\""
     found_count=$((found_count + 1))
   done
 done

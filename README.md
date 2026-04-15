@@ -48,17 +48,13 @@ We recommend a **Mac Mini** (or any always-on home server). A **cloud VM** (EC2,
   - Slack — via the included `mcp/slack-channel` MCP server (Socket Mode + WebClient, with auto-react progress indicator)
 - **Google Workspace MCP server** — Gmail, Calendar, Drive tools (read + write)
 - **Schedules system** — Per-task `.md` files with cron frontmatter, synced to OS crontab (email triage, briefings, monitoring)
-- **Scripts** — Create new agents, start/restart existing ones, one-command Slack setup, cross-agent messaging
+- **Fleet MCP** — Orchestration primitives available to every agent as MCP tools: start, compact, message, context-check, agent-status, list-mcps, sync-schedules, create-agent
 
 ## Architecture
 
 ```
 claude-code-teams/          # The install directory
 ├── CLAUDE.md              # Shared config inherited by all agents
-├── scripts/                # Fleet-wide tooling
-│   ├── start-agent.sh      # Start or restart any agent
-│   ├── compact-agent.sh    # Send /compact to an agent
-│   └── message-agent.sh    # Send a one-shot message into an agent's session
 ├── agents/
 │   └── orchestrator/      # Chief of staff (reference agent)
 │       ├── CLAUDE.md
@@ -67,18 +63,24 @@ claude-code-teams/          # The install directory
 │       ├── docs/
 │       ├── memory/
 │       ├── scripts/        # Orchestrator-specific tooling
-│       │   ├── create-agent.sh
-│       │   ├── setup-slack.sh
-│       │   └── sync-schedules.sh
+│       │   └── setup-slack.sh   # Kept as standalone script (takes tokens)
 │       └── .claude/
 ├── hooks/                  # Shared Claude Code hooks (channel-reply-reminder, etc.)
 └── mcp/
-    ├── google-workspace/  # Gmail, Calendar, Drive MCP server
+    ├── agent-history/      # Search an agent's past session jsonl
+    ├── fleet/              # Cross-agent primitives + orchestrator tools
+    │   ├── server.ts       # MCP server (TypeScript)
+    │   └── scripts/        # Shell scripts the fleet MCP shells out to
+    │       ├── start-agent.sh
+    │       ├── compact-agent.sh
+    │       ├── message-agent.sh
+    │       ├── sync-schedules.sh
+    │       └── create-agent.sh
+    ├── google-workspace/  # Gmail, Calendar, Drive, Docs
     └── slack-channel/     # Slack integration (Socket Mode + WebClient)
 
 ~/.claude/channels/         # Telegram/Discord/iMessage/Slack channel configs (user home)
 ~/.config/                  # OAuth tokens, etc. (user home)
-~/.mcp.json                 # MCP server registry (user home, created during setup)
 ```
 
 Each agent:
@@ -89,7 +91,7 @@ Each agent:
 
 ## Adding Slack
 
-Any agent can be connected to Slack (in addition to or instead of any other channel). See `agents/orchestrator/docs/slack-setup.md` for the full guide, or use the one-command setup:
+Any agent can be connected to Slack (in addition to or instead of any other channel). See `agents/orchestrator/docs/slack-setup.md` for the full guide, or use the one-command setup. Kept as a standalone shell script (rather than a fleet MCP tool) because it takes Slack tokens as arguments, which shouldn't land in an MCP tool call jsonl:
 
 ```bash
 agents/orchestrator/scripts/setup-slack.sh <agent> <xoxb-token> <xapp-token> <your-slack-user-id> [channel-ids...]

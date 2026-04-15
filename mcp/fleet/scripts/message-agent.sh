@@ -22,8 +22,11 @@ if ! tmux has-session -t "$AGENT" 2>/dev/null; then
   exit 1
 fi
 
-# Type the message literally, then submit.
+# Type the message literally, pause to let Claude Code accept the input
+# (otherwise the submit Enter can race the input field if the agent is
+# mid-turn, leaving the text queued as unsent draft), then submit.
 tmux send-keys -l -t "$AGENT" "$MSG"
+sleep 5
 tmux send-keys -t "$AGENT" Enter
 
 echo "Sent to $AGENT"

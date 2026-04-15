@@ -33,7 +33,7 @@ git clone --quiet --depth 1 --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"
 rm -rf "$INSTALL_DIR/.git"
 
 # Make scripts executable
-chmod +x "$INSTALL_DIR/install.sh" "$INSTALL_DIR/scripts/"*.sh "$INSTALL_DIR/agents/orchestrator/scripts/"*.sh 2>/dev/null || true
+chmod +x "$INSTALL_DIR/install.sh" "$INSTALL_DIR/mcp/fleet/scripts/"*.sh "$INSTALL_DIR/agents/orchestrator/scripts/"*.sh 2>/dev/null || true
 
 echo ""
 echo "✓ Installed to $INSTALL_DIR"

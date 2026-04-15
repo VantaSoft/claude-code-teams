@@ -14,6 +14,10 @@ if ! tmux has-session -t "$AGENT" 2>/dev/null; then
 fi
 
 tmux send-keys -l -t "$AGENT" "/compact"
+# Give Claude Code time to accept the literal input before submitting.
+# Without this delay, if the agent is mid-turn, Enter races the input
+# field and the /compact ends up queued as unsent draft text.
+sleep 5
 tmux send-keys -t "$AGENT" Enter
 
 echo "Sent /compact to $AGENT"

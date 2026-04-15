@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "fleet": {
+      "command": "bun",
+      "args": ["/absolute/path/to/claude-code-teams/mcp/fleet/server.ts"]
+    },
+    "agent-history": {
+      "command": "bun",
+      "args": ["/absolute/path/to/claude-code-teams/mcp/agent-history/server.ts"]
+    },
+    "google-workspace": {
+      "command": "node",
+      "args": ["/absolute/path/to/claude-code-teams/mcp/google-workspace/dist/index.js"]
+    }
+  }
+}

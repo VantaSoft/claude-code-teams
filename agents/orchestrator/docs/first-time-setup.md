@@ -24,6 +24,14 @@ Greet the principal briefly and walk them through the setup flow below. **When a
 
 3. **Get principal's name** — Ask "What's your name?" Save to `PROJECT_ROOT/CLAUDE.md` "Principal" section.
 
+   Also: make sure `PROJECT_ROOT/agents/orchestrator/.mcp.json` exists. Each agent's working directory needs a `.mcp.json` declaring which MCP servers to load; the repo ships `.mcp.json.example` as a template with `/absolute/path/to/claude-code-teams/` placeholders. If `.mcp.json` is missing, copy the example into place and substitute the real path:
+   ```bash
+   sed "s|/absolute/path/to/claude-code-teams|$PROJECT_ROOT|g" \
+     $PROJECT_ROOT/agents/orchestrator/.mcp.json.example \
+     > $PROJECT_ROOT/agents/orchestrator/.mcp.json
+   ```
+   When setup-slack.sh runs later, it merges a `slack` entry into this file. New agents created via `fleet:create_agent` get a `.mcp.json` scaffolded automatically.
+
 4. **Name yourself** — Ask "What would you like to call me?" (examples: Alfred, Jarvis, Vance). Save the chosen name to the "Name" section of `PROJECT_ROOT/agents/orchestrator/CLAUDE.md` and use it in all future conversations. The directory/tmux/channel stay as "orchestrator" — the name is just your identity.
 
 5. **Choose a messaging channel** — Ask "How do you want to reach me — **Slack** or **Telegram**?" Both work; they can add the other one later.

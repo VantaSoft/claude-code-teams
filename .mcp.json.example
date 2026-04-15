@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "google-workspace": {
-      "command": "node",
-      "args": ["/absolute/path/to/claude-code-teams/mcp/google-workspace/dist/index.js"]
-    }
-  }
-}

@@ -92,6 +92,33 @@ cat > "$AGENT_DIR/.claude/settings.local.json" << EOF
 }
 EOF
 
+# Scaffold a per-agent .mcp.json with fleet + agent-history + google-workspace.
+# Per-agent .mcp.json is the single source of truth for which MCP servers an
+# agent loads. We no longer rely on a root-level .mcp.json being inherited
+# via Claude Code's parent-directory walk — list_mcps and other tools that
+# read per-agent config would miss anything declared up-tree.
+#
+# slack-channel is intentionally omitted here; setup-slack.sh merges it in
+# after the agent is wired up with Slack tokens.
+cat > "$AGENT_DIR/.mcp.json" << EOF
+{
+  "mcpServers": {
+    "fleet": {
+      "command": "bun",
+      "args": ["$PROJECT_ROOT/mcp/fleet/server.ts"]
+    },
+    "agent-history": {
+      "command": "bun",
+      "args": ["$PROJECT_ROOT/mcp/agent-history/server.ts"]
+    },
+    "google-workspace": {
+      "command": "node",
+      "args": ["$PROJECT_ROOT/mcp/google-workspace/dist/index.js"]
+    }
+  }
+}
+EOF
+
 echo ""
 echo "Agent '$AGENT_NAME' created at $AGENT_DIR"
 echo ""

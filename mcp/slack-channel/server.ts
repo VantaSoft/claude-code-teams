@@ -24,7 +24,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js'
 import { z } from 'zod'
 import { SocketModeClient } from '@slack/socket-mode'
-import { WebClient } from '@slack/web-api'
+import { WebClient, retryPolicies } from '@slack/web-api'
 import { readFileSync, appendFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
@@ -66,18 +66,20 @@ if (!APP_TOKEN) {
   process.exit(1)
 }
 
-const web = new WebClient(BOT_TOKEN)
+const web = new WebClient(BOT_TOKEN, {
+  retryConfig: retryPolicies.fiveRetriesInFiveMinutes,
+})
 const socket = new SocketModeClient({ appToken: APP_TOKEN })
 
 let botUserId = ''
 let botUsername = ''
 
-// Pending ack reactions — keyed by channel_id, value is the ts of the most
-// recent inbound message that got the ackReaction. When the agent sends its
-// first reply to a channel, we automatically call remove_reaction on the
-// stored ts and clear the entry, so the agent doesn't have to manage the
-// "mark as done" step. Simple per-channel FIFO (newest overwrites oldest).
-const pendingAcks = new Map<string, string>()
+// Pending ack reactions — keyed by channel_id, value is the list of inbound
+// message ts values that got the ackReaction and haven't been cleared yet.
+// When the agent sends its first reply to a channel, we auto-clear every
+// pending ack for that channel so the "eyes → done" flip works correctly
+// even when multiple inbound messages arrive before the agent replies.
+const pendingAcks = new Map<string, string[]>()
 
 // --- Access control ---
 
@@ -136,8 +138,25 @@ async function resolveUserName(userId: string): Promise<string> {
 // User types "yes xxxxx" or "no xxxxx" where xxxxx is a 5-letter request code.
 const PERMISSION_REPLY_RE = /^\s*(y|yes|n|no)\s+([a-km-z]{5})\s*$/i
 
-// Stores pending permission details for expanded view.
-const pendingPermissions = new Map<string, { tool_name: string; description: string; input_preview: string }>()
+// Stores pending permission details. Bounded + TTL'd so abandoned
+// requests don't accumulate forever.
+const PERMISSION_TTL_MS = 30 * 60 * 1000 // 30 minutes
+const PERMISSION_MAX = 200
+type PendingPermission = { tool_name: string; description: string; input_preview: string; created_at: number }
+const pendingPermissions = new Map<string, PendingPermission>()
+
+function evictExpiredPermissions() {
+  const now = Date.now()
+  for (const [id, p] of pendingPermissions) {
+    if (now - p.created_at > PERMISSION_TTL_MS) pendingPermissions.delete(id)
+  }
+  // Fallback: if still over-capacity, drop oldest (insertion order).
+  while (pendingPermissions.size > PERMISSION_MAX) {
+    const first = pendingPermissions.keys().next().value
+    if (!first) break
+    pendingPermissions.delete(first)
+  }
+}
 
 // --- MCP Server ---
 
@@ -177,7 +196,8 @@ mcp.setNotificationHandler(
   }),
   async ({ params }) => {
     const { request_id, tool_name, description, input_preview } = params
-    pendingPermissions.set(request_id, { tool_name, description, input_preview })
+    pendingPermissions.set(request_id, { tool_name, description, input_preview, created_at: Date.now() })
+    evictExpiredPermissions()
     const access = loadAccess()
 
     let prettyInput: string
@@ -352,17 +372,20 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
         lastTs = res.ts ?? ''
       }
 
-      // Auto-clear the pending ack reaction for this channel. The agent's
+      // Auto-clear every pending ack reaction for this channel. The agent's
       // reply means the turn is effectively done from the sender's POV, so
-      // the eyes indicator should flip off. Fire-and-forget — if the remove
-      // fails we don't block the reply.
-      const ackedTs = pendingAcks.get(channel)
-      if (ackedTs) {
+      // the eyes indicator should flip off for every inbound message that's
+      // still wearing one. Fire-and-forget — if a remove fails we don't
+      // block the reply.
+      const queued = pendingAcks.get(channel)
+      if (queued && queued.length > 0) {
         const ackName = (loadAccess().ackReaction ?? '').trim()
         if (ackName) {
-          web.reactions
-            .remove({ channel, timestamp: ackedTs, name: ackName })
-            .catch((err) => debugLog(`auto-clear ack failed ts=${ackedTs}: ${err}`))
+          for (const ackedTs of queued) {
+            web.reactions
+              .remove({ channel, timestamp: ackedTs, name: ackName })
+              .catch((err) => debugLog(`auto-clear ack failed ts=${ackedTs}: ${(err as Error).message}`))
+          }
         }
         pendingAcks.delete(channel)
       }
@@ -574,7 +597,9 @@ async function handleInbound(event: Record<string, unknown>): Promise<void> {
       web.reactions
         .add({ channel: channelId, timestamp: ts, name: ackName })
         .catch((err) => debugLog(`ack reaction failed ts=${ts}: ${err}`))
-      pendingAcks.set(channelId, ts)
+      const queue = pendingAcks.get(channelId) ?? []
+      queue.push(ts)
+      pendingAcks.set(channelId, queue)
     }
   }
 
@@ -674,6 +699,12 @@ async function handleInbound(event: Record<string, unknown>): Promise<void> {
     })
 }
 
+// Serialize handleInbound calls so two messages arriving back-to-back
+// can't race on shared state (pendingAcks, notification ordering).
+// Socket Mode dispatches message events concurrently; chaining through
+// a single promise guarantees FIFO delivery to the agent.
+let inboundChain: Promise<void> = Promise.resolve()
+
 socket.on('message', async ({ event, ack }) => {
   const arrived = Date.now()
   const ts = (event as Record<string, unknown>).ts ?? '?'
@@ -681,8 +712,14 @@ socket.on('message', async ({ event, ack }) => {
   await ack()
   const acked = Date.now()
   process.stderr.write(`slack channel: [TIMING] ack sent ${acked - arrived}ms after arrival\n`)
-  await handleInbound(event as Record<string, unknown>)
-  process.stderr.write(`slack channel: [TIMING] handleInbound done ${Date.now() - arrived}ms total\n`)
+  inboundChain = inboundChain
+    .then(() => handleInbound(event as Record<string, unknown>))
+    .catch((err) => {
+      process.stderr.write(`slack channel: handleInbound error ts=${ts}: ${(err as Error).message}\n`)
+    })
+    .then(() => {
+      process.stderr.write(`slack channel: [TIMING] handleInbound done ${Date.now() - arrived}ms total\n`)
+    })
 })
 
 socket.on('connected', () => {
@@ -709,7 +746,8 @@ socket.on('reconnecting', () => {
 
 // Catch unhandled rejections — keep serving, don't crash
 process.on('unhandledRejection', (err) => {
-  process.stderr.write(`slack channel: unhandled rejection at ${new Date().toISOString()}: ${err}\n`)
+  const msg = err instanceof Error ? err.message : String(err)
+  process.stderr.write(`slack channel: unhandled rejection at ${new Date().toISOString()}: ${msg}\n`)
 })
 // No uncaughtException handler — let the process crash and restart cleanly
 // rather than continuing in a corrupted state.
@@ -722,13 +760,17 @@ process.on('unhandledRejection', (err) => {
 void (async () => {
   try {
     const auth = await web.auth.test()
-    botUserId = auth.user_id ?? ''
+    if (!auth.user_id) {
+      process.stderr.write(`slack channel: auth.test returned no user_id — refusing to start (group-channel mention matching would silently drop everything)\n`)
+      process.exit(1)
+    }
+    botUserId = auth.user_id
     botUsername = auth.user ?? ''
     process.stderr.write(
       `slack channel: bot=@${botUsername} (id=${botUserId}) team=${auth.team}\n`,
     )
   } catch (e) {
-    process.stderr.write(`slack channel: auth.test failed: ${e}\n`)
+    process.stderr.write(`slack channel: auth.test failed: ${(e as Error).message}\n`)
     process.exit(1)
   }
 

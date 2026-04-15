@@ -14,6 +14,42 @@ const server = new McpServer({
   version: "1.2.0",
 });
 
+// Sanitize thrown errors before they land in an MCP tool response.
+// googleapis (gaxios) includes the failed request on error objects, and
+// that request carries `Authorization: Bearer <access_token>` headers.
+// Without scrubbing, a single failed API call can leak the access token
+// into Claude Code's tool-call jsonl.
+function sanitizeError(err: unknown): Error {
+  if (!(err instanceof Error)) return new Error(String(err));
+  // Scrub bearer tokens that may have leaked into the message or stack.
+  // gaxios error objects carry `config` / `request` / `response.config`
+  // with raw Authorization headers, but those fields never make it into
+  // MCP responses — only `message` and `stack` do — so scrubbing those
+  // is sufficient.
+  const scrub = (s: string) => s.replace(/Bearer\s+[A-Za-z0-9._\-~+/=]+/g, "Bearer <redacted>");
+  const sanitized = new Error(scrub(err.message));
+  if (err.stack) sanitized.stack = scrub(err.stack);
+  return sanitized;
+}
+
+// Monkey-patch server.tool so every registered handler is wrapped in
+// the sanitizer. Less invasive than editing every call site.
+const _origTool = server.tool.bind(server) as (...args: unknown[]) => unknown;
+(server as unknown as { tool: (...args: unknown[]) => unknown }).tool = (...args: unknown[]) => {
+  const handler = args[args.length - 1] as (a: unknown) => Promise<unknown>;
+  if (typeof handler !== "function") return _origTool(...args);
+  const wrapped = async (a: unknown) => {
+    try {
+      return await handler(a);
+    } catch (err) {
+      throw sanitizeError(err);
+    }
+  };
+  const newArgs = [...args];
+  newArgs[newArgs.length - 1] = wrapped;
+  return _origTool(...newArgs);
+};
+
 async function getClients(account: string = "default") {
   const auth = await getAuthClient(account);
   return {

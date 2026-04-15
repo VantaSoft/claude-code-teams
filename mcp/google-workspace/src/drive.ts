@@ -52,7 +52,21 @@ export class DriveClient {
       const res = await this.drive.files.export({ fileId, mimeType: "text/csv" }, { responseType: "text" });
       return res.data as string;
     } else {
-      // Binary/text files — download content
+      // Refuse binary blobs — decoding random bytes as UTF-8 corrupts
+      // them. Only text-ish MIME types are readable here; callers who
+      // need binary should use driveFileId via the attachment path.
+      const isTextish =
+        mimeType.startsWith("text/") ||
+        mimeType === "application/json" ||
+        mimeType === "application/xml" ||
+        mimeType === "application/yaml" ||
+        mimeType.endsWith("+json") ||
+        mimeType.endsWith("+xml");
+      if (!isTextish) {
+        throw new Error(
+          `Cannot read binary file (mimeType=${mimeType}). Use gdrive_upload, driveFileId attachment, or export via Google-native handlers.`
+        );
+      }
       const res = await this.drive.files.get({ fileId, alt: "media" }, { responseType: "text" });
       return res.data as string;
     }

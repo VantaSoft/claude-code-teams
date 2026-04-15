@@ -58,18 +58,27 @@ export class CalendarClient {
     start?: string;
     end?: string;
     timeZone?: string;
+    attendees?: string[];
+    sendUpdates?: "all" | "externalOnly" | "none";
   }): Promise<calendar_v3.Schema$Event> {
-    const tz = updates.timeZone || "America/Los_Angeles";
     const body: calendar_v3.Schema$Event = {};
     if (updates.summary) body.summary = updates.summary;
     if (updates.description !== undefined) body.description = updates.description;
     if (updates.location !== undefined) body.location = updates.location;
-    if (updates.start) body.start = { dateTime: updates.start, timeZone: tz };
-    if (updates.end) body.end = { dateTime: updates.end, timeZone: tz };
+    // Only set timeZone when the caller explicitly provided one. Forcing
+    // a default onto every patch would silently re-label events that
+    // were originally created in a different tz and break recurring
+    // instances around DST transitions.
+    const withTz = (dateTime: string) =>
+      updates.timeZone ? { dateTime, timeZone: updates.timeZone } : { dateTime };
+    if (updates.start) body.start = withTz(updates.start);
+    if (updates.end) body.end = withTz(updates.end);
+    if (updates.attendees) body.attendees = updates.attendees.map((email) => ({ email }));
 
     const res = await this.calendar.events.patch({
       calendarId,
       eventId,
+      sendUpdates: updates.sendUpdates,
       requestBody: body,
     });
     return res.data;

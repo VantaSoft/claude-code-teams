@@ -82,9 +82,17 @@ export class GmailClient {
       lines.push(`In-Reply-To: ${options.inReplyTo}`);
       lines.push(`References: ${options.inReplyTo}`);
     }
+    // Body is base64-encoded so UTF-8 (emoji, curly quotes, accented
+    // names) and long lines pass through downstream MTAs cleanly. 7bit is
+    // invalid for non-ASCII and lines > 998 chars; base64 sidesteps both.
+    // Folded to 76-char lines per RFC-2045 for strict MIME parsers.
+    const bodyBase64 = Buffer.from(body, "utf-8").toString("base64");
+    const foldedBody: string[] = [];
+    for (let i = 0; i < bodyBase64.length; i += 76) foldedBody.push(bodyBase64.slice(i, i + 76));
     lines.push("Content-Type: text/plain; charset=utf-8");
+    lines.push("Content-Transfer-Encoding: base64");
     lines.push("");
-    lines.push(body);
+    lines.push(foldedBody.join("\r\n"));
 
     const raw = Buffer.from(lines.join("\r\n")).toString("base64url");
 
@@ -97,18 +105,24 @@ export class GmailClient {
 
   async replyToMessage(messageId: string, body: string, options?: { cc?: string; bcc?: string }): Promise<{ id: string; threadId: string }> {
     // Get the original message to extract headers
-    const original = await this.gmail.users.messages.get({ userId: "me", id: messageId, format: "metadata", metadataHeaders: ["From", "To", "Cc", "Subject", "Message-ID"] });
+    const original = await this.gmail.users.messages.get({ userId: "me", id: messageId, format: "metadata", metadataHeaders: ["From", "Reply-To", "To", "Cc", "Subject", "Message-ID"] });
     const headers = original.data.payload?.headers || [];
-    const from = headers.find((h) => h.name === "From")?.value || "";
-    const subject = headers.find((h) => h.name === "Subject")?.value || "";
-    const msgId = headers.find((h) => h.name === "Message-ID")?.value;
+    const headerValue = (name: string) =>
+      headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value || "";
+    const from = headerValue("From");
+    const replyToHeader = headerValue("Reply-To");
+    const subject = headerValue("Subject");
+    const msgId = headerValue("Message-ID") || undefined;
     const reSubject = subject.startsWith("Re: ") ? subject : `Re: ${subject}`;
 
-    return this.sendEmail(from, reSubject, body, {
+    // Prefer Reply-To over From if present (mailing lists, automated senders).
+    const newTo = replyToHeader || from;
+
+    return this.sendEmail(newTo, reSubject, body, {
       cc: options?.cc,
       bcc: options?.bcc,
       threadId: original.data.threadId!,
-      inReplyTo: msgId || undefined,
+      inReplyTo: msgId,
     });
   }
 

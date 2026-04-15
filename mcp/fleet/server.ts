@@ -45,7 +45,7 @@ import {
   CallToolRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { spawnSync } from "node:child_process";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { closeSync, openSync, readdirSync, readFileSync, readSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -68,6 +68,11 @@ const MESSAGE_SCRIPT = join(SCRIPTS_DIR, "message-agent.sh");
 const CREATE_AGENT_SCRIPT = join(SCRIPTS_DIR, "create-agent.sh");
 
 // --- helpers -----------------------------------------------------------
+
+const AGENT_NAME_RE = /^[a-z][a-z0-9_-]{0,30}$/;
+function isValidAgentName(s: string): boolean {
+  return AGENT_NAME_RE.test(s);
+}
 
 function listAgents(): string[] {
   return readdirSync(AGENTS_DIR, { withFileTypes: true })
@@ -106,7 +111,32 @@ type Usage = {
 };
 
 function lastUsage(file: string): { usage: Usage; ts: string | null } | null {
-  const lines = readFileSync(file, "utf8").split("\n");
+  // Read only the last ~256KB of the session jsonl — long-lived sessions
+  // can grow to many MB and we only care about the tail. A usage entry is
+  // always well under 1KB, so 256KB is >250 entries of slack.
+  const TAIL_BYTES = 256 * 1024;
+  let text: string;
+  try {
+    const size = statSync(file).size;
+    if (size <= TAIL_BYTES) {
+      text = readFileSync(file, "utf8");
+    } else {
+      const fd = openSync(file, "r");
+      try {
+        const buf = Buffer.alloc(TAIL_BYTES);
+        readSync(fd, buf, 0, TAIL_BYTES, size - TAIL_BYTES);
+        text = buf.toString("utf8");
+        // Drop the leading partial line (likely mid-JSON).
+        const nl = text.indexOf("\n");
+        if (nl >= 0) text = text.slice(nl + 1);
+      } finally {
+        closeSync(fd);
+      }
+    }
+  } catch {
+    return null;
+  }
+  const lines = text.split("\n");
   for (let i = lines.length - 1; i >= 0; i--) {
     const line = lines[i];
     if (!line) continue;
@@ -231,9 +261,12 @@ function parseAgentStatus(agent: string, paneText: string | null): AgentStatus {
     }
   }
 
+  // Last tool call: lines like `⏺ Bash(ls)` or `⏺ slack - reply (MCP)(channel_id="...")`.
+  // Tool names may have an optional " (MCP)" suffix before the argument paren.
+  const toolCallRe = /^⏺\s+(\w[\w\s\-]*?)(?:\s*\(MCP\))?\(([^)]*)/;
   let lastToolCall: AgentStatus["last_tool_call"] = null;
   for (let i = lines.length - 1; i >= 0; i--) {
-    const m = lines[i].match(/^⏺\s+([A-Za-z][\w\-\s\(\)]*?)\(([^)]*)/);
+    const m = lines[i].match(toolCallRe);
     if (m) {
       lastToolCall = { tool: m[1].trim(), summary: (m[2] ?? "").slice(0, 120) };
       break;
@@ -243,7 +276,7 @@ function parseAgentStatus(agent: string, paneText: string | null): AgentStatus {
   let lastMessage: string | null = null;
   for (let i = lines.length - 1; i >= 0; i--) {
     const l = lines[i];
-    if (l.startsWith("⏺ ") && !/^⏺\s+[A-Za-z][\w\-\s\(\)]*?\(/.test(l)) {
+    if (l.startsWith("⏺ ") && !toolCallRe.test(l)) {
       lastMessage = l.slice(2).trim().slice(0, 200);
       if (lastMessage) break;
     }
@@ -552,6 +585,12 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
       const channels = Array.isArray(a.channels) ? (a.channels as string[]) : [];
       if (!agent || channels.length === 0)
         return { content: [{ type: "text", text: "agent and at least one channel are required" }], isError: true };
+      if (!isValidAgentName(agent))
+        return { content: [{ type: "text", text: `invalid agent name: ${agent}` }], isError: true };
+      for (const ch of channels) {
+        if (typeof ch !== "string" || !/^[a-z][a-z0-9_-]{0,20}$/.test(ch))
+          return { content: [{ type: "text", text: `invalid channel: ${ch}` }], isError: true };
+      }
       // Self-restart is safe. restart-agent.sh uses `tmux respawn-window
       // -k` when the target session already exists, which kills the old
       // claude and launches the new one atomically from tmux's own
@@ -567,6 +606,8 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (name === "compact_agent") {
       const agent = String(a.agent ?? "");
       if (!agent) return { content: [{ type: "text", text: "agent is required" }], isError: true };
+      if (!isValidAgentName(agent))
+        return { content: [{ type: "text", text: `invalid agent name: ${agent}` }], isError: true };
       const r = run(COMPACT_SCRIPT, [agent]);
       return { content: [{ type: "text", text: r.text }], isError: !r.ok };
     }
@@ -576,22 +617,30 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
       const message = String(a.message ?? "");
       if (!agent || !message)
         return { content: [{ type: "text", text: "agent and message are required" }], isError: true };
+      if (!isValidAgentName(agent))
+        return { content: [{ type: "text", text: `invalid agent name: ${agent}` }], isError: true };
       const r = run(MESSAGE_SCRIPT, [agent, message]);
       return { content: [{ type: "text", text: r.text }], isError: !r.ok };
     }
 
     if (name === "context_check") {
       const agent = a.agent != null ? String(a.agent) : undefined;
+      if (agent && !isValidAgentName(agent))
+        return { content: [{ type: "text", text: `invalid agent name: ${agent}` }], isError: true };
       return { content: [{ type: "text", text: contextCheck(agent) }] };
     }
 
     if (name === "agent_status") {
       const agent = a.agent != null ? String(a.agent) : undefined;
+      if (agent && !isValidAgentName(agent))
+        return { content: [{ type: "text", text: `invalid agent name: ${agent}` }], isError: true };
       return { content: [{ type: "text", text: agentStatus(agent) }] };
     }
 
     if (name === "list_mcps") {
       const agent = a.agent != null ? String(a.agent) : undefined;
+      if (agent && !isValidAgentName(agent))
+        return { content: [{ type: "text", text: `invalid agent name: ${agent}` }], isError: true };
       const verbose = a.verbose === true;
       return { content: [{ type: "text", text: listMcps(agent, verbose) }] };
     }
@@ -606,12 +655,16 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     if (name === "list_schedules") {
       const agent = a.agent != null ? String(a.agent) : undefined;
+      if (agent && !isValidAgentName(agent))
+        return { content: [{ type: "text", text: `invalid agent name: ${agent}` }], isError: true };
       return { content: [{ type: "text", text: listSchedules(agent) }] };
     }
 
     if (name === "create_agent") {
       const agent = String(a.agent ?? "");
       if (!agent) return { content: [{ type: "text", text: "agent is required" }], isError: true };
+      if (!isValidAgentName(agent))
+        return { content: [{ type: "text", text: `invalid agent name: ${agent}` }], isError: true };
       const r = run("/bin/bash", [CREATE_AGENT_SCRIPT, agent]);
       return { content: [{ type: "text", text: r.text }], isError: !r.ok };
     }

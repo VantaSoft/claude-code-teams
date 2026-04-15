@@ -26,7 +26,8 @@ import {
   ListToolsRequestSchema,
   CallToolRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js'
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { createReadStream, readdirSync, statSync } from 'node:fs'
+import { createInterface } from 'node:readline'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -59,6 +60,11 @@ const DEFAULT_TYPES = new Set(['user', 'assistant', 'tool_result'])
 
 type JsonlEntry = Record<string, any>
 
+// Reject anything that isn't a plain agent name slug. Protects the
+// PROJECTS_DIR path-traversal surface even though we run in a trusted
+// single-user environment.
+const AGENT_NAME_RE = /^[a-z0-9][a-z0-9_-]{0,30}$/
+
 function projectDirForAgent(agent: string): string {
   return join(PROJECTS_DIR, `${PROJECT_DIR_PREFIX}${agent}`)
 }
@@ -66,27 +72,40 @@ function projectDirForAgent(agent: string): string {
 function listJsonlFiles(agent: string): string[] {
   const dir = projectDirForAgent(agent)
   try {
-    return readdirSync(dir)
+    // Stat each file ONCE, then sort by mtime. The previous comparator
+    // called statSync per comparison, which is O(n log n) syscalls.
+    // Sort newest-first so `limit` returns the most recent matches,
+    // which is almost always what the caller wants.
+    const entries = readdirSync(dir)
       .filter((f) => f.endsWith('.jsonl'))
-      .map((f) => join(dir, f))
-      .sort((a, b) => statSync(a).mtimeMs - statSync(b).mtimeMs)
+      .map((f) => {
+        const path = join(dir, f)
+        return { path, mtime: statSync(path).mtimeMs }
+      })
+    entries.sort((a, b) => b.mtime - a.mtime)
+    return entries.map((e) => e.path)
   } catch {
     return []
   }
 }
 
-function parseJsonl(path: string): JsonlEntry[] {
-  const raw = readFileSync(path, 'utf8')
-  const out: JsonlEntry[] = []
-  for (const line of raw.split('\n')) {
-    if (!line) continue
-    try {
-      out.push(JSON.parse(line))
-    } catch {
-      // Ignore malformed lines (partial writes at the tail, etc.).
+// Stream a jsonl file line-by-line, yielding each parsed entry.
+// Handles multi-MB session files without loading them into memory.
+async function* streamJsonl(path: string): AsyncGenerator<JsonlEntry> {
+  const stream = createReadStream(path, { encoding: 'utf8' })
+  const rl = createInterface({ input: stream, crlfDelay: Infinity })
+  try {
+    for await (const line of rl) {
+      if (!line) continue
+      try {
+        yield JSON.parse(line)
+      } catch {
+        // Ignore malformed lines (partial writes at the tail, etc.).
+      }
     }
+  } finally {
+    rl.close()
   }
-  return out
 }
 
 // Extract a searchable text blob from an entry. Different entry shapes:
@@ -126,8 +145,11 @@ function entryText(entry: JsonlEntry): string {
       } else if (c.type === 'image') {
         parts.push('<image>')
       } else {
-        // Unknown object — stringify as a fallback so grep still works.
-        parts.push(JSON.stringify(c))
+        // Unknown object — stringify as a fallback so grep still works,
+        // but cap the fallback so base64 blobs (images, large tool_use
+        // inputs) don't bloat the matcher input.
+        const fb = JSON.stringify(c)
+        parts.push(fb.length > 2000 ? fb.slice(0, 2000) : fb)
       }
     }
   }
@@ -180,9 +202,24 @@ type SearchParams = {
   regex?: boolean
 }
 
-function search(params: SearchParams): string {
+// Hard caps to keep search from running away.
+const MAX_SCANNED = 200_000
+const MAX_PATTERN_LENGTH = 500
+
+async function search(params: SearchParams): Promise<string> {
   const { agent, pattern } = params
   const limit = params.limit ?? 50
+
+  if (!AGENT_NAME_RE.test(agent)) {
+    return `Invalid agent name "${agent}". Expected a lowercase slug matching ${AGENT_NAME_RE}.`
+  }
+  if (!pattern) {
+    return 'pattern is required'
+  }
+  if (pattern.length > MAX_PATTERN_LENGTH) {
+    return `Pattern too long (${pattern.length} chars). Max: ${MAX_PATTERN_LENGTH}.`
+  }
+
   const typeFilter =
     params.raw || params.types?.includes('*')
       ? null // null = match any type
@@ -211,11 +248,15 @@ function search(params: SearchParams): string {
 
   const matches: JsonlEntry[] = []
   let scanned = 0
+  let truncatedScan = false
 
-  for (const file of files) {
-    const entries = parseJsonl(file)
-    for (const entry of entries) {
+  outer: for (const file of files) {
+    for await (const entry of streamJsonl(file)) {
       scanned++
+      if (scanned > MAX_SCANNED) {
+        truncatedScan = true
+        break outer
+      }
       // Type filter.
       if (typeFilter && !typeFilter.has(entryRole(entry))) continue
       // Time filter — skip entries without timestamps if a range was requested.
@@ -230,17 +271,17 @@ function search(params: SearchParams): string {
       if (!text) continue
       if (!matcher(text)) continue
       matches.push(entry)
-      if (matches.length >= limit) break
+      if (matches.length >= limit) break outer
     }
-    if (matches.length >= limit) break
   }
 
+  const scanNote = truncatedScan ? ` (scan capped at ${MAX_SCANNED})` : ''
   if (matches.length === 0) {
-    return `No matches for "${pattern}" in ${files.length} jsonl file(s) (${scanned} entries scanned).`
+    return `No matches for "${pattern}" in ${files.length} jsonl file(s) (${scanned} entries scanned${scanNote}).`
   }
 
   const lines: string[] = [
-    `Found ${matches.length} match(es) for "${pattern}" in ${files.length} jsonl file(s) (${scanned} entries scanned).`,
+    `Found ${matches.length} match(es) for "${pattern}" in ${files.length} jsonl file(s) (${scanned} entries scanned${scanNote}).`,
     '',
   ]
   for (const entry of matches) lines.push(formatEntry(entry))
@@ -322,7 +363,7 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
   const a = (args ?? {}) as Record<string, unknown>
   try {
-    const result = search({
+    const result = await search({
       agent: String(a.agent ?? ''),
       pattern: String(a.pattern ?? ''),
       since: a.since != null ? String(a.since) : undefined,

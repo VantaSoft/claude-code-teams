@@ -127,6 +127,28 @@ fi
 # before it could complete, and the new session sometimes re-parented
 # to launchd, breaking TCC inheritance.
 if tmux has-session -t "$AGENT_NAME" 2>/dev/null; then
+  # Kill the entire process tree rooted in the tmux pane BEFORE respawning.
+  # `tmux respawn-window -k` only sends SIGHUP to the pane's shell, but
+  # grandchild processes (e.g. `bun server.ts` spawned by `bun run`) survive
+  # because bun doesn't forward signals. These orphans keep WebSocket
+  # connections alive and steal inbound events from the replacement.
+  PANE_PID=$(tmux list-panes -t "$AGENT_NAME" -F '#{pane_pid}' 2>/dev/null | head -1)
+  if [ -n "$PANE_PID" ]; then
+    # Collect all descendants (children, grandchildren, etc.)
+    DESCENDANTS=$(pgrep -P "$PANE_PID" 2>/dev/null)
+    for dpid in $DESCENDANTS; do
+      DESCENDANTS="$DESCENDANTS $(pgrep -P "$dpid" 2>/dev/null)"
+    done
+    # Kill deepest children first (reverse order) to avoid re-parenting
+    for dpid in $(echo "$DESCENDANTS" | tr ' ' '\n' | sort -rn | uniq); do
+      kill "$dpid" 2>/dev/null || true
+    done
+    sleep 0.5
+    # Force-kill any survivors
+    for dpid in $(echo "$DESCENDANTS" | tr ' ' '\n' | sort -rn | uniq); do
+      kill -9 "$dpid" 2>/dev/null || true
+    done
+  fi
   tmux respawn-window -k -t "$AGENT_NAME" "$CLAUDE_CMD"
 else
   tmux new-session -d -s "$AGENT_NAME" -c "$AGENT_DIR" "$CLAUDE_CMD"

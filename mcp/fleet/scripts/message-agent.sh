@@ -1,6 +1,6 @@
 #!/bin/bash
 # Send a message to another agent's tmux session.
-# Usage: message-agent.sh <agent-name> "<message>"
+# Usage: message-agent.sh <agent-name> "<message>" [sender]
 #
 # Uses `tmux send-keys -l` (literal mode) to type the message one byte at a
 # time into the target session. This is slower than `paste-buffer` for long
@@ -14,18 +14,23 @@
 # in the buffer unsubmitted.
 set -e
 
-AGENT="${1:?Usage: message-agent.sh <agent-name> \"<message>\"}"
-MSG="${2:?Usage: message-agent.sh <agent-name> \"<message>\"}"
+AGENT="${1:?Usage: message-agent.sh <agent-name> \"<message>\" [sender]}"
+MSG="${2:?Usage: message-agent.sh <agent-name> \"<message>\" [sender]}"
+SENDER="${3:-unknown}"
 
 if ! tmux has-session -t "$AGENT" 2>/dev/null; then
   echo "Error: no tmux session named '$AGENT' (is the agent running?)" >&2
   exit 1
 fi
 
+# Append sender + reply reminder so the receiving agent knows who sent it and how to reply.
+FULL_MSG="[From: $SENDER] $MSG
+[Reply to $SENDER via fleet:message_agent — terminal output is invisible to the sender]"
+
 # Type the message literally, pause to let Claude Code accept the input
 # (otherwise the submit Enter can race the input field if the agent is
 # mid-turn, leaving the text queued as unsent draft), then submit.
-tmux send-keys -l -t "$AGENT" "$MSG"
+tmux send-keys -l -t "$AGENT" "$FULL_MSG"
 sleep 5
 tmux send-keys -t "$AGENT" Enter
 

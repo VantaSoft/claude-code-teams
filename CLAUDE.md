@@ -146,9 +146,13 @@ fleet:message_agent({ agent: "<name>", message: "<message>" })
 
 Under the hood, the tool uses `tmux send-keys -l` to type the message literally, pauses 5 seconds to let Claude Code's input field accept the text (otherwise the trailing Enter can race the input if the target agent is mid-turn and queue the prompt as unsent draft), then submits. The receiving agent sees the text as terminal input (no `<channel>` tag), processes it, and responds in its own terminal. Use this MCP tool — do NOT try to call another agent's Telegram/Slack bot, edit their files directly, or talk to their tmux session yourself.
 
-**Message style:** Write it like a clear one-line instruction or ask, e.g. "<agent-A> added `PROJECT_ROOT/agents/<agent-A>/schedules/<name>.md` (cron: 0 14 * * 1). Please call `fleet:sync_schedules` to install the cron entry." The receiver is another Claude agent and will read, reason, and act.
+**Message style:** Terse, one-line instructions only. No greetings, no thanks, no conversational filler. Example: "Call fleet:sync_schedules -- agent-A added PROJECT_ROOT/agents/agent-A/schedules/weekly-report.md." The receiver is another Claude agent, not a human -- skip all pleasantries.
+
+**Reply style:** Respond with a brief confirmation and the result. No conversational back-and-forth, but always confirm completion. Example: "Done. Crontab updated, 12 entries." or "Synced. 3 new schedules installed."
 
 **When to use:** Cross-agent dependencies (schedule syncs, repo clones, handoffs), status pings, or any workflow the other agent owns. Use it sparingly — each message interrupts the other agent's turn.
+
+**Always reply via `fleet:message_agent`.** When you receive a message from another agent, they CANNOT see your terminal output. You MUST use `fleet:message_agent` to send your response back. Replying in your own terminal is the same as not replying at all.
 
 ## Shared Resources
 

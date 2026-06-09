@@ -126,6 +126,38 @@ Each agent has a `docs/` folder for durable reference material that doesn't belo
 
 Plugins are configured per-agent in `PROJECT_ROOT/agents/<agent-name>/.claude/settings.local.json`, not globally. To install a plugin for just one agent, run `/plugin install <name>` from within that agent's directory — Claude Code writes to the local settings.local.json automatically.
 
+### Creating Agent Skills
+
+Skills are reusable instruction sets that an agent can invoke for specific workflows. They live under each agent's `.claude/skills/` directory.
+
+**File location:**
+```
+PROJECT_ROOT/agents/<agent-name>/.claude/skills/<skill-name>/SKILL.md
+```
+
+**Format:** Markdown with YAML frontmatter:
+```markdown
+---
+name: my-skill-name
+description: One-line description of when to use this skill
+---
+
+# Skill Title
+
+...instructions, checklists, templates, process steps...
+```
+
+- `name` -- kebab-case identifier. Must be unique within the agent.
+- `description` -- tells the agent when to invoke the skill. Be specific about trigger phrases or conditions (e.g. "Use when a customer needs a service agreement").
+
+**What goes in a skill:**
+- Multi-step workflows the agent repeats (e.g. generating a document, running a deployment checklist)
+- Decision trees or questionnaires that gather inputs before acting
+- Templates and field definitions
+- Process rules that are too long for CLAUDE.md but need to be followed exactly when invoked
+
+**Invoking:** The agent's Skill tool discovers skills from `.claude/skills/`. When a user request matches the skill's description, the agent loads and follows it. Skills can also be invoked explicitly with `/skill-name`.
+
 ## Hooks
 
 Shared Claude Code hooks live at `PROJECT_ROOT/hooks/`. Each agent registers the hooks it wants in its own `.claude/settings.local.json`.
@@ -153,6 +185,35 @@ Under the hood, the tool uses `tmux send-keys -l` to type the message literally,
 **When to use:** Cross-agent dependencies (schedule syncs, repo clones, handoffs), status pings, or any workflow the other agent owns. Use it sparingly — each message interrupts the other agent's turn.
 
 **Always reply via `fleet:message_agent`.** When you receive a message from another agent, they CANNOT see your terminal output. You MUST use `fleet:message_agent` to send your response back. Replying in your own terminal is the same as not replying at all.
+
+## Fleet MCP
+
+The `fleet` MCP server provides cross-agent management tools. Available to all agents, but some tools are orchestrator-only.
+
+### Observability
+
+| Tool | Purpose |
+|------|---------|
+| `context_check(agent?)` | Report context window usage (tokens, % of 1M). Omit agent for whole fleet. |
+| `agent_status(agent?)` | Live snapshot: working/idle/waiting_input, current spinner, last tool call. Omit for fleet. |
+| `history_search(agent, pattern, since?, until?, regex?, limit?)` | Grep an agent's session jsonl for past events pushed out by compaction. |
+| `list_mcps(agent?, verbose?)` | Which MCP servers each agent has wired up. |
+| `list_schedules(agent?)` | All recurring schedules (parsed from `schedules/*.md` frontmatter). |
+
+### Lifecycle
+
+| Tool | Purpose |
+|------|---------|
+| `compact_agent(agent)` | Send `/compact` to compress an agent's context. Use when context_check shows >50%. |
+| `restart_agent(agent, channels)` | Kill and relaunch an agent's tmux session with `--continue`. Safe for self-restart. |
+| `message_agent(agent, message)` | Type a one-line message into another agent's tmux session. See "Messaging Other Agents" above. |
+
+### Orchestrator-only
+
+| Tool | Purpose |
+|------|---------|
+| `sync_schedules()` | Regenerate the MANAGED crontab block from all `schedules/*.md` files. |
+| `create_agent(agent)` | Scaffold a new agent folder. Does NOT wire Slack or start the agent. |
 
 ## Shared Resources
 

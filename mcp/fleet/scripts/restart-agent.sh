@@ -13,12 +13,15 @@
 # command line and prevents stale .env files from accidentally re-enabling
 # channels you thought you'd turned off.
 #
-# Self-restart is safe. If the target session already exists, the script
-# uses `tmux respawn-window -k` to atomically kill the old claude and
-# launch the new one in place — tmux performs the kill+respawn in its
-# own process, so the caller dying mid-call doesn't prevent the
-# replacement from coming up. The dev-channel auto-approve loop runs
-# as its own detached tmux session that survives this script dying.
+# DESIGN: this script is meant to be run BY the long-lived `fleet-rebooter`
+# tmux session (fleet MCP's restart_agent send-keys the command into it),
+# never inline inside the agent being restarted. Running from the rebooter
+# means the script lives OUTSIDE the target's process tree, so kill-session +
+# new-session can tear the target down and bring it back without the script
+# killing itself. The fresh new-session also gets its own PTY, avoiding the
+# ENXIO fork failure that respawn-window hit. new-session keeps the new claude
+# parented under the resident tmux server (not launchd), preserving TCC /
+# Full Disk Access. Do NOT call this inline-as-self; route through the rebooter.
 
 set -e
 
@@ -104,67 +107,73 @@ CLAUDE_CMD="$ENV_VARS claude --continue $CHANNELS --dangerously-skip-permissions
 
 echo "Starting $AGENT_NAME with channels:$([ "$USE_TELEGRAM" = true ] && echo " telegram")$([ "$USE_DISCORD" = true ] && echo " discord")$([ "$USE_IMESSAGE" = true ] && echo " imessage")$([ "$USE_SLACK" = true ] && echo " slack")"
 
+# Serialize concurrent restarts. The fleet-rebooter session executes restart
+# requests via tmux send-keys, and back-to-back requests could otherwise race
+# on tmux state. mkdir is atomic on macOS (no flock here). Per-agent lock so
+# different agents can restart in parallel; stale lock (>2min) is reclaimed.
+LOCK_DIR="/tmp/restart-agent-$AGENT_NAME.lock"
+for _i in $(seq 1 60); do
+  if mkdir "$LOCK_DIR" 2>/dev/null; then break; fi
+  if [ -n "$(find "$LOCK_DIR" -maxdepth 0 -mmin +2 2>/dev/null)" ]; then
+    rmdir "$LOCK_DIR" 2>/dev/null || true
+  fi
+  sleep 0.5
+done
+trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
+
 # Auto-approve the dev-channel confirmation prompt (only Slack triggers it).
-# Spawned BEFORE respawn/new-session so it's already running by the time
-# the new claude process shows the prompt. Runs as its own detached tmux
-# session so it survives this script dying (which happens on self-restart
-# when tmux kills the calling claude during respawn-window).
+# Spawned BEFORE the new session so it's already polling by the time the new
+# claude process shows the prompt. Runs as its own detached tmux session.
 if $USE_SLACK; then
   AA_SESSION="autoapprove-$AGENT_NAME-$$"
   tmux new-session -d -s "$AA_SESSION" -c /tmp \
     "for i in \$(seq 1 60); do if tmux capture-pane -t $AGENT_NAME -p 2>/dev/null | grep -qE 'Enter to confirm|local development'; then tmux send-keys -t $AGENT_NAME Enter; break; fi; sleep 1; done"
 fi
 
-# Two paths: existing session → respawn the window in place (safe for
-# self-restart because tmux handles the kill+respawn atomically in its
-# own process, not ours); missing session → create from scratch.
+# kill-session + new-session (NOT respawn-window). This script is invoked by
+# the long-lived `fleet-rebooter` session, so it runs OUTSIDE the target
+# agent's process tree — killing the target can't kill this script. A fresh
+# new-session also allocates its own PTY, sidestepping the ENXIO
+# ("Device not configured") fork failure that `respawn-window -k` hit when it
+# tried to reuse the pane's PTY mid-teardown.
 #
-# Respawn-window preserves the tmux session, the window, and crucially
-# the parent-process chain rooted in the tmux server — so TCC grants
-# like Full Disk Access keep flowing into the new claude process.
-# The previous /exit + kill-session + new-session dance suffered two
-# problems: self-restart killed the MCP subprocess running this script
-# before it could complete, and the new session sometimes re-parented
-# to launchd, breaking TCC inheritance.
+# TCC note: `tmux new-session` parents the new claude under the EXISTING tmux
+# server (which the always-on rebooter keeps alive), NOT launchd — so Full
+# Disk Access / iMessage grants keep inheriting. The old launchd re-parenting
+# bug only happened when the server itself exited; with the rebooter resident,
+# it never does.
 if tmux has-session -t "$AGENT_NAME" 2>/dev/null; then
-  # Kill the entire process tree rooted in the tmux pane BEFORE respawning.
-  # `tmux respawn-window -k` only sends SIGHUP to the pane's shell, but
-  # grandchild processes (e.g. `bun server.ts` spawned by `bun run`) survive
-  # because bun doesn't forward signals. These orphans keep WebSocket
-  # connections alive and steal inbound events from the replacement.
+  # Reap the target's descendant process tree BEFORE killing the session.
+  # `tmux kill-session` only SIGHUPs the pane shell; grandchild bun/node MCP
+  # servers (e.g. `bun server.ts`) survive as orphans, keep their WebSocket
+  # connections alive, and would steal inbound events from the replacement.
   PANE_PID=$(tmux list-panes -t "$AGENT_NAME" -F '#{pane_pid}' 2>/dev/null | head -1)
   if [ -n "$PANE_PID" ]; then
-    # Spare this script's own ancestor chain (script -> fleet-MCP -> claude ->
-    # ... up to PANE_PID) from the pre-kill. On self-restart the script and its
-    # parent MCP are DESCENDANTS of PANE_PID; without this guard the reverse-PID
-    # kill below reaps the just-spawned script (highest PID) before respawn runs,
-    # silently no-opping the restart. The slack/telegram bun orphans are
-    # siblings, not ancestors, so they still get reaped.
+    # Spare this script's own ancestor chain (defense-in-depth). When run from
+    # the rebooter the script is not in the target's tree, so this matches
+    # nothing; it's a guard in case the script is ever run inline-as-self.
     SELF_PIDS=" "; p=$$
     while [ -n "$p" ] && [ "$p" != "$PANE_PID" ] && [ "$p" -gt 1 ] 2>/dev/null; do
       SELF_PIDS="$SELF_PIDS$p "; p=$(ps -o ppid= -p "$p" 2>/dev/null | tr -d ' ')
     done
-    # Collect all descendants (children, grandchildren, etc.)
     DESCENDANTS=$(pgrep -P "$PANE_PID" 2>/dev/null)
     for dpid in $DESCENDANTS; do
       DESCENDANTS="$DESCENDANTS $(pgrep -P "$dpid" 2>/dev/null)"
     done
-    # Kill deepest children first (reverse order) to avoid re-parenting
+    # Kill deepest children first (reverse order) to avoid re-parenting.
     for dpid in $(echo "$DESCENDANTS" | tr ' ' '\n' | sort -rn | uniq); do
       case "$SELF_PIDS" in *" $dpid "*) continue ;; esac
       kill "$dpid" 2>/dev/null || true
     done
     sleep 0.5
-    # Force-kill any survivors
     for dpid in $(echo "$DESCENDANTS" | tr ' ' '\n' | sort -rn | uniq); do
       case "$SELF_PIDS" in *" $dpid "*) continue ;; esac
       kill -9 "$dpid" 2>/dev/null || true
     done
   fi
-  tmux respawn-window -k -t "$AGENT_NAME" "$CLAUDE_CMD"
-else
-  tmux new-session -d -s "$AGENT_NAME" -c "$AGENT_DIR" "$CLAUDE_CMD"
+  tmux kill-session -t "$AGENT_NAME" 2>/dev/null || true
 fi
+tmux new-session -d -s "$AGENT_NAME" -c "$AGENT_DIR" "$CLAUDE_CMD"
 
 echo "$AGENT_NAME is running in tmux session '$AGENT_NAME'"
 echo "Attach with: tmux attach -t $AGENT_NAME"

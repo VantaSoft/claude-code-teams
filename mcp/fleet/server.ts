@@ -69,6 +69,20 @@ const COMPACT_SCRIPT = join(SCRIPTS_DIR, "compact-agent.sh");
 const MESSAGE_SCRIPT = join(SCRIPTS_DIR, "message-agent.sh");
 const CREATE_AGENT_SCRIPT = join(SCRIPTS_DIR, "create-agent.sh");
 
+// Long-lived tmux session that executes restart requests from OUTSIDE every
+// agent's process tree. restart_agent send-keys the restart command into it
+// rather than running restart-agent.sh inline (which made the script a
+// descendant of the claude being restarted — it killed itself before relaunch
+// on self-restart, and respawn-window hit an ENXIO PTY fork error). The
+// rebooter is a plain idle shell; lazily (re)created on each dispatch.
+const REBOOTER_SESSION = "fleet-rebooter";
+function ensureRebooter(): void {
+  const has = spawnSync("tmux", ["has-session", "-t", REBOOTER_SESSION], { encoding: "utf8" });
+  if (has.status !== 0) {
+    spawnSync("tmux", ["new-session", "-d", "-s", REBOOTER_SESSION, "-c", "/tmp"], { encoding: "utf8" });
+  }
+}
+
 // --- helpers -----------------------------------------------------------
 
 const AGENT_NAME_RE = /^[a-z][a-z0-9_-]{0,30}$/;
@@ -646,7 +660,7 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "restart_agent",
       description:
-        "Launch or restart an agent in a tmux session with the given channels (slack, telegram, discord, imessage). Safe for self-restart: when the target session already exists, restart-agent.sh uses `tmux respawn-window -k` to atomically kill the old claude and launch the new one in place — tmux handles the kill+respawn in its own process, so the caller dying mid-call doesn't prevent the replacement from coming up. The new claude loads with `--continue` and picks up the prior session history. The dev-channel auto-approve loop runs in a detached sibling tmux session that survives the caller's death.",
+        "Launch or restart an agent in a tmux session with the given channels (slack, telegram, discord, imessage). The restart is dispatched (via tmux send-keys) to a long-lived `fleet-rebooter` session that runs kill-session + new-session from OUTSIDE the target's process tree, then returns immediately. This makes self-restart reliable: the rebooter isn't a descendant of the claude being restarted, so it can't kill itself, and a fresh new-session gets its own PTY (avoiding the respawn-window ENXIO fork error). The new claude loads with `--continue` and keeps prior history; new-session keeps it parented under the resident tmux server so TCC/Full-Disk-Access still inherits. The dev-channel auto-approve loop runs in a detached sibling session.",
       inputSchema: {
         type: "object",
         properties: {
@@ -786,16 +800,23 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (typeof ch !== "string" || !/^[a-z][a-z0-9_-]{0,20}$/.test(ch))
           return { content: [{ type: "text", text: `invalid channel: ${ch}` }], isError: true };
       }
-      // Self-restart is safe. restart-agent.sh uses `tmux respawn-window
-      // -k` when the target session already exists, which kills the old
-      // claude and launches the new one atomically from tmux's own
-      // process — not from this MCP subprocess. So even if the caller
-      // is the target and dies mid-call, tmux has already committed to
-      // spawning the replacement. The dev-channel auto-approve loop
-      // runs in its own detached tmux session that survives this
-      // script dying for the same reason.
-      const r = run(RESTART_SCRIPT, [agent, ...channels]);
-      return { content: [{ type: "text", text: r.text }], isError: !r.ok };
+      // Dispatch the restart to the long-lived `fleet-rebooter` session via
+      // send-keys instead of running restart-agent.sh inline. Inline made the
+      // script a descendant of the claude being restarted: on self-restart it
+      // killed itself before relaunch, and respawn-window hit an ENXIO PTY
+      // fork error. The rebooter runs the script from OUTSIDE every agent's
+      // tree, so kill-session + new-session works uniformly for self- and
+      // cross-restart, and this call returns immediately. (Same send-keys
+      // primitive message_agent and the cron scheduler already rely on.)
+      ensureRebooter();
+      const cmd = `"${RESTART_SCRIPT}" ${agent} ${channels.join(" ")}`;
+      const k1 = spawnSync("tmux", ["send-keys", "-t", REBOOTER_SESSION, "-l", cmd], { encoding: "utf8" });
+      const k2 = spawnSync("tmux", ["send-keys", "-t", REBOOTER_SESSION, "Enter"], { encoding: "utf8" });
+      const ok = k1.status === 0 && k2.status === 0;
+      const text = ok
+        ? `Dispatched restart of ${agent} (${channels.join(", ")}) to fleet-rebooter — it will kill-session + relaunch with --continue.`
+        : `Failed to dispatch to fleet-rebooter: ${(k1.stderr || k2.stderr || "").toString().trim()}`;
+      return { content: [{ type: "text", text }], isError: !ok };
     }
 
     if (name === "compact_agent") {

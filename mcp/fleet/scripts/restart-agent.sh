@@ -134,6 +134,16 @@ if tmux has-session -t "$AGENT_NAME" 2>/dev/null; then
   # connections alive and steal inbound events from the replacement.
   PANE_PID=$(tmux list-panes -t "$AGENT_NAME" -F '#{pane_pid}' 2>/dev/null | head -1)
   if [ -n "$PANE_PID" ]; then
+    # Spare this script's own ancestor chain (script -> fleet-MCP -> claude ->
+    # ... up to PANE_PID) from the pre-kill. On self-restart the script and its
+    # parent MCP are DESCENDANTS of PANE_PID; without this guard the reverse-PID
+    # kill below reaps the just-spawned script (highest PID) before respawn runs,
+    # silently no-opping the restart. The slack/telegram bun orphans are
+    # siblings, not ancestors, so they still get reaped.
+    SELF_PIDS=" "; p=$$
+    while [ -n "$p" ] && [ "$p" != "$PANE_PID" ] && [ "$p" -gt 1 ] 2>/dev/null; do
+      SELF_PIDS="$SELF_PIDS$p "; p=$(ps -o ppid= -p "$p" 2>/dev/null | tr -d ' ')
+    done
     # Collect all descendants (children, grandchildren, etc.)
     DESCENDANTS=$(pgrep -P "$PANE_PID" 2>/dev/null)
     for dpid in $DESCENDANTS; do
@@ -141,11 +151,13 @@ if tmux has-session -t "$AGENT_NAME" 2>/dev/null; then
     done
     # Kill deepest children first (reverse order) to avoid re-parenting
     for dpid in $(echo "$DESCENDANTS" | tr ' ' '\n' | sort -rn | uniq); do
+      case "$SELF_PIDS" in *" $dpid "*) continue ;; esac
       kill "$dpid" 2>/dev/null || true
     done
     sleep 0.5
     # Force-kill any survivors
     for dpid in $(echo "$DESCENDANTS" | tr ' ' '\n' | sort -rn | uniq); do
+      case "$SELF_PIDS" in *" $dpid "*) continue ;; esac
       kill -9 "$dpid" 2>/dev/null || true
     done
   fi

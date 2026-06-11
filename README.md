@@ -67,7 +67,7 @@ claude-code-teams/          # The install directory
 │       └── .claude/
 ├── hooks/                  # Shared Claude Code hooks (channel-reply-reminder, etc.)
 └── mcp/
-    ├── fleet/              # Cross-agent primitives + orchestrator tools (includes history_search for session jsonl)
+    ├── fleet/              # Cross-agent primitives + orchestrator tools
     │   ├── server.ts       # MCP server (TypeScript)
     │   └── scripts/        # Shell scripts the fleet MCP shells out to
     │       ├── restart-agent.sh

@@ -196,7 +196,6 @@ The `fleet` MCP server provides cross-agent management tools. Available to all a
 |------|---------|
 | `context_check(agent?)` | Report context window usage (tokens, % of 1M). Omit agent for whole fleet. |
 | `agent_status(agent?)` | Live snapshot: working/idle/waiting_input, current spinner, last tool call. Omit for fleet. |
-| `history_search(agent, pattern, since?, until?, regex?, limit?)` | Grep an agent's session jsonl for past events pushed out by compaction. |
 | `list_mcps(agent?, verbose?)` | Which MCP servers each agent has wired up. |
 | `list_schedules(agent?)` | All recurring schedules (parsed from `schedules/*.md` frontmatter). |
 

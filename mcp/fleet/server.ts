@@ -12,6 +12,9 @@
  *   agent_status(agent?)           — working / idle / waiting_input snapshot
  *   list_mcps(agent?, verbose?)    — MCP servers each agent has configured
  *   list_schedules(agent?)         — list cron schedules across the fleet
+ *   recall(query, n?, project?)    — FTS5 search over all past session transcripts
+ *   recall_context(session, seq)   — scroll the conversation around a recall hit
+ *   recall_sessions(n?)            — list recently indexed sessions
  *   sync_schedules()               — re-install MANAGED crontab block
  *   create_agent(agent)            — scaffold a new PROJECT_ROOT/agents/<agent>/
  *
@@ -49,6 +52,15 @@ import { closeSync, openSync, readdirSync, readFileSync, readSync, statSync } fr
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  recallIndex,
+  recallSearch,
+  recallContext,
+  recallSessions,
+  formatSearch,
+  formatContext,
+  formatSessions,
+} from "./recall.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -475,7 +487,7 @@ const mcp = new Server(
   {
     capabilities: { tools: {} },
     instructions:
-      "fleet exposes cross-agent primitives (restart_agent, compact_agent, message_agent, context_check, agent_status, list_mcps, list_schedules) and orchestrator-only tools (sync_schedules, create_agent). restart/compact/message require explicit principal approval before use on another agent — see the shared CLAUDE.md messaging-other-agents section. sync_schedules and create_agent are orchestrator-only; only the orchestrator agent should call them. Slack provisioning is not exposed as a tool on purpose; run PROJECT_ROOT/agents/orchestrator/scripts/setup-slack.sh manually when adding a new agent.",
+      "fleet exposes cross-agent primitives (restart_agent, compact_agent, message_agent, context_check, agent_status, list_mcps, list_schedules, recall, recall_context, recall_sessions) and orchestrator-only tools (sync_schedules, create_agent). restart/compact/message require explicit principal approval before use on another agent — see the shared CLAUDE.md messaging-other-agents section. sync_schedules and create_agent are orchestrator-only; only the orchestrator agent should call them. recall does an FTS5 full-text search over every past Claude Code session transcript on this machine (self-freshening — it incrementally indexes before each search); use it to recover things pushed out by compaction or time, then recall_context to read around a hit. Slack provisioning is not exposed as a tool on purpose; run PROJECT_ROOT/agents/orchestrator/scripts/setup-slack.sh manually when adding a new agent.",
   },
 );
 
@@ -554,6 +566,44 @@ mcp.setRequestHandler(ListToolsRequestSchema, async () => ({
         properties: {
           agent: { type: "string", description: "Optional agent name. Omit to check all agents." },
           verbose: { type: "boolean", description: "Default false. Set true to include the full command line for each MCP." },
+        },
+      },
+    },
+    {
+      name: "recall",
+      description:
+        "Full-text search across ALL past Claude Code session transcripts on this machine (every agent, every project). FTS5/BM25 keyword search — use it to recall what was discussed, decided, or done in earlier sessions that have scrolled out of live context or been compacted away. The index self-refreshes on every call (incrementally indexes new/changed transcripts first), so results are always current. Returns ranked hits with a highlighted snippet plus session id + seq for each; pass those to recall_context to read the surrounding conversation. Prefer broad keyword terms over long phrases.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Keyword query. FTS5 syntax supported; falls back to a literal phrase match if the query has special characters." },
+          n: { type: "integer", description: "Max results (default 8)." },
+          project: { type: "string", description: "Optional substring filter on the project/agent name." },
+        },
+        required: ["query"],
+      },
+    },
+    {
+      name: "recall_context",
+      description:
+        "Read the conversation around a specific recall hit — pass the session id and seq from a `recall` result to scroll k entries before and after it.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          session: { type: "string", description: "Session id from a recall hit." },
+          seq: { type: "integer", description: "seq number from a recall hit." },
+          k: { type: "integer", description: "Entries before/after to include (default 6)." },
+        },
+        required: ["session", "seq"],
+      },
+    },
+    {
+      name: "recall_sessions",
+      description: "List the most recently active indexed sessions (session id, project, time span, chunk count).",
+      inputSchema: {
+        type: "object",
+        properties: {
+          n: { type: "integer", description: "Max sessions (default 20)." },
         },
       },
     },
@@ -664,6 +714,42 @@ mcp.setRequestHandler(CallToolRequestSchema, async (request) => {
         return { content: [{ type: "text", text: `invalid agent name: ${agent}` }], isError: true };
       const verbose = a.verbose === true;
       return { content: [{ type: "text", text: listMcps(agent, verbose) }] };
+    }
+
+    if (name === "recall") {
+      const query = String(a.query ?? "").trim();
+      if (!query) return { content: [{ type: "text", text: "query is required" }], isError: true };
+      const n = typeof a.n === "number" ? a.n : 8;
+      const project = a.project != null ? String(a.project) : undefined;
+      try {
+        recallIndex(false); // self-freshen before searching
+        return { content: [{ type: "text", text: formatSearch(recallSearch(query, n, project)) }] };
+      } catch (e) {
+        return { content: [{ type: "text", text: `recall failed: ${(e as Error).message}` }], isError: true };
+      }
+    }
+
+    if (name === "recall_context") {
+      const session = String(a.session ?? "");
+      const seq = typeof a.seq === "number" ? a.seq : Number(a.seq);
+      if (!session || !Number.isFinite(seq))
+        return { content: [{ type: "text", text: "session and numeric seq are required" }], isError: true };
+      const k = typeof a.k === "number" ? a.k : 6;
+      try {
+        return { content: [{ type: "text", text: formatContext(recallContext(session, seq, k)) }] };
+      } catch (e) {
+        return { content: [{ type: "text", text: `recall_context failed: ${(e as Error).message}` }], isError: true };
+      }
+    }
+
+    if (name === "recall_sessions") {
+      const n = typeof a.n === "number" ? a.n : 20;
+      try {
+        recallIndex(false);
+        return { content: [{ type: "text", text: formatSessions(recallSessions(n)) }] };
+      } catch (e) {
+        return { content: [{ type: "text", text: `recall_sessions failed: ${(e as Error).message}` }], isError: true };
+      }
     }
 
     if (name === "sync_schedules") {

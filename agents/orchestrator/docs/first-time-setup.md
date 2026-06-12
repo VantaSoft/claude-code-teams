@@ -32,6 +32,24 @@ Greet the principal briefly and walk them through the setup flow below. **When a
    ```
    When setup-slack.sh runs later, it merges a `slack` entry into this file. New agents created via `fleet:create_agent` get a `.mcp.json` scaffolded automatically.
 
+   Same idea for `settings.local.json` — it ships as a `.example` with the same `/absolute/path/to/claude-code-teams` placeholders. It wires the auto-memory directory, the channel-reply reminder hook, and the reclaude PreCompact (steering) / SessionStart (post-compaction recovery) hooks. If it's missing, substitute the real path:
+   ```bash
+   sed "s|/absolute/path/to/claude-code-teams|$PROJECT_ROOT|g" \
+     $PROJECT_ROOT/agents/orchestrator/.claude/settings.local.json.example \
+     > $PROJECT_ROOT/agents/orchestrator/.claude/settings.local.json
+   ```
+   Then scaffold the two reclaude skills into the orchestrator (the `recall` skill is a thin pointer to the fleet `recall` tool; the `llm-wiki` skill drives the shared second-brain vault and needs the vault path substituted in):
+   ```bash
+   mkdir -p $PROJECT_ROOT/agents/orchestrator/.claude/skills/recall \
+            $PROJECT_ROOT/agents/orchestrator/.claude/skills/llm-wiki
+   cp $PROJECT_ROOT/skills/recall/SKILL.md \
+      $PROJECT_ROOT/agents/orchestrator/.claude/skills/recall/SKILL.md
+   sed "s|{{VAULT_PATH}}|$PROJECT_ROOT/llm-wiki|g" \
+     $PROJECT_ROOT/skills/llm-wiki/SKILL.md \
+     > $PROJECT_ROOT/agents/orchestrator/.claude/skills/llm-wiki/SKILL.md
+   ```
+   New agents created via `fleet:create_agent` get all of this (settings + both skills) scaffolded automatically by `create-agent.sh`.
+
 4. **Name yourself** — Ask "What would you like to call me?" (examples: Alfred, Jarvis, Vance). Save the chosen name to the "Name" section of `PROJECT_ROOT/agents/orchestrator/CLAUDE.md` and use it in all future conversations. The directory/tmux/channel stay as "orchestrator" — the name is just your identity.
 
 5. **Choose a messaging channel** — Ask "How do you want to reach me — **Slack** or **Telegram**?" Both work; they can add the other one later.

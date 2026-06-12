@@ -1,0 +1,41 @@
+{
+  "skipDangerousModePermissionPrompt": true,
+  "autoMemoryDirectory": "/absolute/path/to/claude-code-teams/agents/orchestrator/memory",
+  "cleanupPeriodDays": 3650,
+  "enabledPlugins": {},
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun /absolute/path/to/claude-code-teams/hooks/channel-reply-reminder.ts"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun /absolute/path/to/claude-code-teams/hooks/reclaude-steer.ts pre-compact",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun /absolute/path/to/claude-code-teams/hooks/reclaude-steer.ts post-compact",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

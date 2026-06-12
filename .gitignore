@@ -14,6 +14,16 @@ agents/*/memory/*
 agents/*/.claude/plugins/
 agents/*/.claude/cache/
 
+# Per-install config generated from a committed .example (absolute paths / secrets).
+# The .example templates are tracked; the substituted output is not.
+agents/*/.claude/settings.local.json
+agents/*/.mcp.json
+
+# reclaude skills scaffolded at setup (recall is regenerable; llm-wiki has a
+# per-install vault path substituted in). Source of truth lives in top-level skills/.
+agents/*/.claude/skills/recall/
+agents/*/.claude/skills/llm-wiki/
+
 # Per-install settings that might contain secrets
 .claude/channels/
 *.env

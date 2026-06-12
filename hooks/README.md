@@ -92,7 +92,59 @@ This is one layer in a defense-in-depth stack for reply-channel routing:
 2. **Memory entry** — auto-loaded every turn. Slightly stronger.
 3. **UserPromptSubmit hook (this)** — reminder attached to the specific
    triggering prompt. Strongest non-deterministic nudge.
+
+## reclaude-steer.ts
+
+PreCompact + SessionStart hooks that steer the model across a context
+compaction. Part of reclaude (the recall + llm-wiki memory system bundled into
+the fleet MCP). Pure static-text emit — it does NOT index, because the fleet
+`recall` tool self-freshens (it incrementally indexes on every search).
+
+- **PreCompact** (`pre-compact`) — fires just before the context is summarized.
+  Injects a reminder to preserve verbatim the current task goal, every decision
+  and rejected alternative, exact file paths touched, exact commands that
+  worked, and any unresolved errors. Stops the summary from flattening
+  hard-won state into vague prose.
+- **SessionStart** (`post-compact`, `matcher: "compact"`) — fires when a session
+  resumes right after a compaction. Injects recovery guidance: re-read
+  `.claude/active-task.md`, re-read relevant auto-memory, and use the fleet
+  `recall` tool to recover anything the summary dropped.
+
+A hook must never break a session, so this always exits 0 and stays silent on
+any error. It emits both the documented `hookSpecificOutput` shape and a
+top-level `additionalContext` field, so it works whichever shape a given Claude
+Code build reads.
+
+### Install per agent
+
+```json
+{
+  "hooks": {
+    "PreCompact": [
+      { "hooks": [ { "type": "command", "command": "bun <absolute-path>/reclaude-steer.ts pre-compact", "timeout": 30 } ] }
+    ],
+    "SessionStart": [
+      { "matcher": "compact", "hooks": [ { "type": "command", "command": "bun <absolute-path>/reclaude-steer.ts post-compact", "timeout": 30 } ] }
+    ]
+  }
+}
+```
+
+### Testing
+
+```bash
+# PreCompact — emits the preservation steering as additionalContext
+echo '{}' | bun reclaude-steer.ts pre-compact
+
+# SessionStart (post-compaction) — emits the recovery steering
+echo '{}' | bun reclaude-steer.ts post-compact
+
+# Unknown/no subcommand — silent, exit 0
+echo '{}' | bun reclaude-steer.ts
+```
+
 ## Files
 
-- `channel-reply-reminder.ts` — the hook (~120 lines, Bun, stdlib only).
+- `channel-reply-reminder.ts` — channel reply-routing reminder hook (Bun, stdlib only).
+- `reclaude-steer.ts` — reclaude PreCompact/SessionStart context-steering hook (Bun, stdlib only).
 - `README.md` — this file.

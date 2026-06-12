@@ -74,6 +74,7 @@ cat > "$AGENT_DIR/.claude/settings.local.json" << EOF
 {
   "skipDangerousModePermissionPrompt": true,
   "autoMemoryDirectory": "$AGENT_DIR/memory",
+  "cleanupPeriodDays": 3650,
   "enabledPlugins": {
     "telegram@claude-plugins-official": true
   },
@@ -87,14 +88,44 @@ cat > "$AGENT_DIR/.claude/settings.local.json" << EOF
           }
         ]
       }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun $PROJECT_ROOT/hooks/reclaude-steer.ts pre-compact",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun $PROJECT_ROOT/hooks/reclaude-steer.ts post-compact",
+            "timeout": 30
+          }
+        ]
+      }
     ]
   }
 }
 EOF
 
-# Scaffold a per-agent .mcp.json with fleet + google-workspace. History
-# search used to live in its own `agent-history` MCP but has been merged
-# into fleet as the `history_search` tool.
+# Scaffold the reclaude skills (recall + llm-wiki) into the agent. recall is a
+# thin pointer to the fleet `recall` MCP tool; llm-wiki gets the shared vault
+# path ($PROJECT_ROOT/llm-wiki) substituted in.
+mkdir -p "$AGENT_DIR/.claude/skills/recall" "$AGENT_DIR/.claude/skills/llm-wiki"
+cp "$PROJECT_ROOT/skills/recall/SKILL.md" "$AGENT_DIR/.claude/skills/recall/SKILL.md"
+sed "s|{{VAULT_PATH}}|$PROJECT_ROOT/llm-wiki|g" \
+  "$PROJECT_ROOT/skills/llm-wiki/SKILL.md" > "$AGENT_DIR/.claude/skills/llm-wiki/SKILL.md"
+
+# Scaffold a per-agent .mcp.json with fleet + google-workspace. The fleet MCP
+# exposes the `recall` tool (FTS5 search over past session transcripts).
 # Per-agent .mcp.json is the single source of truth for which MCP servers an
 # agent loads. We no longer rely on a root-level .mcp.json being inherited
 # via Claude Code's parent-directory walk — list_mcps and other tools that

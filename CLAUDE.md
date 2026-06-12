@@ -98,29 +98,55 @@ PROJECT_ROOT/agents/<agent-name>/
 
 All agents inherit `PROJECT_ROOT/CLAUDE.md` (this file) via directory traversal. Agent-specific `CLAUDE.md` lives in each agent's folder.
 
-## Docs Folder
+## Knowledge surfaces
 
-Each agent has a `docs/` folder for durable reference material that doesn't belong in memory or CLAUDE.md. The three surfaces have different jobs:
+This workspace bundles **reclaude** (persistent memory for Claude Code). Knowledge lives in four places, each with a distinct job:
 
 - **CLAUDE.md** — identity, scope, standing rules. Always loaded into every turn's context. Keep it tight.
 - **memory/** — short facts about the user, project state, feedback, and reference pointers. Indexed in MEMORY.md, auto-loaded. Personal to the agent.
-- **docs/** — multi-paragraph reference material the agent opens on demand: checklists, workflows, external-policy summaries, design rationale, setup walkthroughs. Not auto-loaded; re-read when relevant.
+- **llm-wiki** (`PROJECT_ROOT/llm-wiki/`) — durable, cross-project knowledge: concepts, tool evaluations, architecture lessons, distilled research. Shared across agents, written via the `llm-wiki` skill. This is the home for process docs / runbooks — not a per-agent `docs/` folder.
+- **recall** — full-text search over every past session transcript (the fleet `recall` tool). Use it to recover what was discussed/decided before, rather than guessing.
 
-**When to write a new doc:**
-- The content is too long for CLAUDE.md (would bloat context every turn).
-- It needs to be re-read in full before a specific recurring action (e.g. a pre-push scrub checklist, a disaster-recovery runbook).
-- It summarizes an external source that might drift (compliance docs, third-party API behavior) and you want one authoritative local copy.
-- It's stable reference, not a volatile fact about the user or project.
+The reclaude protocol below governs how these are curated.
 
-**When NOT to write a doc:**
-- A one-line memory entry would do.
-- The content is identity/scope (belongs in CLAUDE.md).
-- It duplicates material already in another agent's docs or in the repo.
+<!-- reclaude:begin -->
+# Memory protocol
 
-**Maintenance:**
-- Review docs when you touch adjacent work. Stale guidance is worse than no guidance — update or delete.
-- Docs are agent-internal by default. Don't reference them from files intended for outside audiences unless you plan to keep the docs public.
-- Prefer deletion over leaving stale docs around.
+Persist to auto memory proactively (without being asked) when you learn:
+user corrections ("don't use sudo for docker"), environment facts, project
+conventions, commands that actually worked, tool quirks and workarounds,
+and completed-milestone notes ("migrated X to Y on <date>").
+Skip: trivia, anything re-discoverable via search or the recall skill,
+raw data dumps, and session-specific ephemera (temp paths, one-off context).
+
+Keep MEMORY.md a dense INDEX under ~150 lines (hard load cap is 200 lines /
+25KB — beyond that it silently isn't loaded). Push detail into topic files
+(debugging.md, conventions.md, decisions.md) and link them from MEMORY.md.
+When MEMORY.md approaches the cap, consolidate: merge overlapping entries
+into denser ones and delete stale entries — exactly as you would defragment
+a config file. Compact, information-dense entries; never narrative prose.
+
+# Working-state journal
+
+For any task longer than a few turns, maintain `.claude/active-task.md` in
+the project: goal, plan, decisions made (with rejected alternatives), files
+touched, exact commands used, current blocker, next step. Update it WHEN
+STATE CHANGES, not at the end of the session. After a context compaction
+this file is the source of truth — re-read it before continuing. Add it to
+the project's .gitignore.
+
+# Recall
+
+When the user references past work, when post-compaction context is missing
+details, or before re-deriving something we may have solved before, use the
+recall skill rather than guessing or asking the user to repeat themselves.
+
+# Second brain
+
+When a session produces durable cross-project knowledge (a concept understood,
+a tool evaluation, an architecture lesson), contribute it to the llm-wiki via
+the llm-wiki skill — at natural pauses, not mid-task.
+<!-- reclaude:end -->
 
 ## Plugins / Skills
 

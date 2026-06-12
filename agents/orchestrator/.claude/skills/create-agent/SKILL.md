@@ -65,6 +65,7 @@ You are <Name>, a <role>. Persistent agent on the host machine, reachable via Sl
 {
   "skipDangerousModePermissionPrompt": true,
   "autoMemoryDirectory": "PROJECT_ROOT/agents/<name>/memory",
+  "cleanupPeriodDays": 3650,
   "enabledPlugins": {},
   "hooks": {
     "UserPromptSubmit": [
@@ -76,12 +77,56 @@ You are <Name>, a <role>. Persistent agent on the host machine, reachable via Sl
           }
         ]
       }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun PROJECT_ROOT/hooks/reclaude-steer.ts pre-compact",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun PROJECT_ROOT/hooks/reclaude-steer.ts post-compact",
+            "timeout": 30
+          }
+        ]
+      }
     ]
   }
 }
 ```
 
 Replace `PROJECT_ROOT` with the actual installation path.
+
+- `cleanupPeriodDays: 3650` keeps Claude Code from deleting old session transcripts for 10 years, so the fleet `recall` tool can full-text search the agent's whole history.
+- The **PreCompact** hook injects steering so context compactions preserve verbatim state; the **SessionStart** (`matcher: "compact"`) hook injects post-compaction recovery guidance. Both are reclaude's `reclaude-steer.ts`.
+
+> **Tip:** `fleet:create_agent` (which runs `mcp/fleet/scripts/create-agent.sh`) writes this exact `settings.local.json`, both reclaude skills (Step 4b), and the `.mcp.json` automatically. These manual steps are the fallback / reference for what that script produces.
+
+## Step 4b: Scaffold the reclaude skills
+
+Every agent gets the two reclaude skills. `recall` is a thin pointer to the fleet `recall` tool (no substitution). `llm-wiki` drives the shared second-brain vault and needs the vault path substituted in:
+
+```bash
+mkdir -p PROJECT_ROOT/agents/<name>/.claude/skills/recall \
+         PROJECT_ROOT/agents/<name>/.claude/skills/llm-wiki
+cp PROJECT_ROOT/skills/recall/SKILL.md \
+   PROJECT_ROOT/agents/<name>/.claude/skills/recall/SKILL.md
+sed "s|{{VAULT_PATH}}|PROJECT_ROOT/llm-wiki|g" \
+  PROJECT_ROOT/skills/llm-wiki/SKILL.md \
+  > PROJECT_ROOT/agents/<name>/.claude/skills/llm-wiki/SKILL.md
+```
+
+Replace `PROJECT_ROOT` and `<name>` with the actual values.
 
 ## Step 5: Write .mcp.json
 

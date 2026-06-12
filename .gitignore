@@ -24,6 +24,10 @@ agents/*/.mcp.json
 agents/*/.claude/skills/recall/
 agents/*/.claude/skills/llm-wiki/
 
+# reclaude working-state journal (ephemeral per-session recovery file; the
+# curation protocol in CLAUDE.md tells agents to maintain but not commit it).
+agents/*/.claude/active-task.md
+
 # Per-install settings that might contain secrets
 .claude/channels/
 *.env

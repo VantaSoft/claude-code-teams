@@ -34,3 +34,9 @@ agents/*/.claude/active-task.md
 
 # OS junk
 .DS_Store
+
+# Brainstorming visual companion sessions (local mockups)
+.superpowers/
+
+# Local design specs / implementation plans (never published; repo is served via GitHub Pages)
+docs/superpowers/

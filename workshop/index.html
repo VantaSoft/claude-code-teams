@@ -117,7 +117,17 @@
     <p class="dim">Three steps to get there: a Claude plan &rarr; Claude Code &rarr; Claude Code Teams.</p>
   </section>
 
-  <!-- 4: WSL (win) goes here — Task 3 -->
+  <!-- 4: WSL (win) -->
+  <section class="slide" data-os="win">
+    <div class="step-label">Step 0 &middot; Windows only</div>
+    <h2>Install WSL (Linux on Windows)</h2>
+    <p class="skip">Already have Ubuntu/WSL set up? Skip ahead &rarr;</p>
+    <p>1. Open <b>PowerShell as Administrator</b> (right-click the Start button &rarr; <b>Terminal (Admin)</b>), then run:</p>
+    <div class="cmd"><pre><code>wsl --install</code></pre><button type="button" class="copy">copy</button></div>
+    <p>2. When it finishes, <b>reboot your laptop</b>. This page remembers where you left off &mdash; just come back to <b>cct.vantasoft.com/workshop</b>.</p>
+    <p>3. After the reboot, an <b>Ubuntu</b> window opens (or launch &ldquo;Ubuntu&rdquo; from the Start menu). Create a username and password when it asks.</p>
+    <p class="dim">From here on, run every command in that Ubuntu window &mdash; not in PowerShell.</p>
+  </section>
 
   <!-- 5: Claude plan (all) -->
   <section class="slide" data-os="all">
@@ -132,7 +142,53 @@
     <p class="dim">The free plan does not include Claude Code.</p>
   </section>
 
-  <!-- 6-9: OS-specific install slides go here — Task 3 -->
+  <!-- 6: Install Claude Code (mac) -->
+  <section class="slide" data-os="mac">
+    <div class="step-label">Step 2 &middot; Install Claude Code</div>
+    <h2>Install Claude Code</h2>
+    <p class="skip">Does <code>claude --version</code> already print a version in Terminal? Skip ahead &rarr;</p>
+    <p>Open <b>Terminal</b> (press &#8984;-space, type &ldquo;terminal&rdquo;, hit return) and run:</p>
+    <div class="cmd"><pre><code>curl -fsSL https://claude.ai/install.sh | bash</code></pre><button type="button" class="copy">copy</button></div>
+    <p>Then start it once to log in &mdash; a browser window opens; sign in with your claude.ai account:</p>
+    <div class="cmd"><pre><code>claude</code></pre><button type="button" class="copy">copy</button></div>
+    <p class="dim">Logged in? Type <b>/exit</b> to leave &mdash; next step relaunches it as your team.</p>
+  </section>
+
+  <!-- 7: Install Claude Code (win) -->
+  <section class="slide" data-os="win">
+    <div class="step-label">Step 2 &middot; Install Claude Code</div>
+    <h2>Install Claude Code (inside Ubuntu)</h2>
+    <p class="skip">Does <code>claude --version</code> already print a version in Ubuntu? Skip ahead &rarr;</p>
+    <p>In your <b>Ubuntu</b> window (not PowerShell), run:</p>
+    <div class="cmd"><pre><code>curl -fsSL https://claude.ai/install.sh | bash</code></pre><button type="button" class="copy">copy</button></div>
+    <p>Then start it once to log in &mdash; a browser window opens; sign in with your claude.ai account:</p>
+    <div class="cmd"><pre><code>claude</code></pre><button type="button" class="copy">copy</button></div>
+    <p class="dim">Logged in? Type <b>/exit</b> to leave &mdash; next step relaunches it as your team.</p>
+  </section>
+
+  <!-- 8: Install CCT (mac) -->
+  <section class="slide" data-os="mac">
+    <div class="step-label">Step 3 &middot; Install Claude Code Teams</div>
+    <h2>Install your team</h2>
+    <p>In Terminal, run these four lines (one paste &mdash; the copy button grabs all of them):</p>
+    <div class="cmd"><pre><code>cd ~
+curl -fsSL https://cct.vantasoft.com/install.sh | bash
+cd claude-code-teams/agents/orchestrator
+claude --dangerously-skip-permissions</code></pre><button type="button" class="copy">copy</button></div>
+    <p class="dim">That last flag lets your agents act without asking approval for every step &mdash; it's what makes an autonomous team possible.</p>
+  </section>
+
+  <!-- 9: Install CCT (win) -->
+  <section class="slide" data-os="win">
+    <div class="step-label">Step 3 &middot; Install Claude Code Teams</div>
+    <h2>Install your team</h2>
+    <p>In your <b>Ubuntu</b> window, run these four lines (one paste &mdash; the copy button grabs all of them):</p>
+    <div class="cmd"><pre><code>cd ~
+curl -fsSL https://cct.vantasoft.com/install.sh | bash
+cd claude-code-teams/agents/orchestrator
+claude --dangerously-skip-permissions</code></pre><button type="button" class="copy">copy</button></div>
+    <p class="dim">That last flag lets your agents act without asking approval for every step &mdash; it's what makes an autonomous team possible.</p>
+  </section>
 
   <!-- 10: What happens next (all) -->
   <section class="slide" data-os="all">

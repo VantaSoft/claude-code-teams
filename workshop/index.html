@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Code Teams — Workshop Setup</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --border: #30363d;
+    --text: #e6edf3; --dim: #8b949e;
+    --green: #3fb950; --blue: #79c0ff; --amber: #d29922;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    display: flex; flex-direction: column;
+  }
+  .topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 22px; color: var(--dim); font-size: 14px;
+  }
+  .topbar .brand { color: var(--green); }
+  .os-switch button {
+    background: transparent; border: 1px solid var(--border); color: var(--dim);
+    font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 6px;
+    cursor: pointer; margin-left: 6px;
+  }
+  .os-switch button.on { color: var(--green); border-color: var(--green); }
+  main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 0 24px; overflow-y: auto; }
+  .slide { display: none; max-width: 880px; width: 100%; padding: 24px 0; margin: auto 0; }
+  .slide.current { display: block; animation: fadein .25s ease; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .step-label {
+    color: var(--green); letter-spacing: 3px; font-size: 13px;
+    text-transform: uppercase; margin-bottom: 14px;
+  }
+  h1 { font-size: 44px; margin: 10px 0; }
+  h2 { font-size: 30px; margin: 6px 0 16px; }
+  p, li { font-size: 18px; line-height: 1.6; }
+  li { margin-bottom: 8px; }
+  .dim { color: var(--dim); }
+  b { color: var(--blue); }
+  .skip {
+    border: 1px solid var(--amber); color: var(--amber);
+    padding: 8px 14px; border-radius: 6px; display: inline-block;
+    font-size: 15px; margin-bottom: 18px;
+  }
+  .skip code { color: var(--amber); }
+  .robots { color: var(--green); font-size: 20px; line-height: 1.3; white-space: pre; margin-bottom: 18px; }
+  .cmd { position: relative; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; margin: 14px 0; }
+  .cmd pre { margin: 0; padding: 14px 96px 14px 16px; overflow-x: auto; }
+  .cmd code { color: var(--blue); font-size: 16px; line-height: 1.5; }
+  .copy {
+    position: absolute; top: 10px; right: 10px;
+    background: transparent; border: 1px solid var(--border); color: var(--dim);
+    border-radius: 6px; padding: 4px 10px; cursor: pointer; font: inherit; font-size: 13px;
+  }
+  .copy:hover { color: var(--text); border-color: var(--dim); }
+  .copy.ok { color: var(--green); border-color: var(--green); }
+  .pickers { display: flex; gap: 20px; margin-top: 24px; }
+  .pick {
+    flex: 1; background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    padding: 28px; font: inherit; font-size: 22px; border-radius: 10px; cursor: pointer;
+  }
+  .pick:hover { border-color: var(--green); }
+  .navbar { display: flex; justify-content: center; gap: 18px; align-items: center; padding: 16px; color: var(--dim); }
+  .navbar button {
+    background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; font: inherit; font-size: 18px; padding: 8px 22px; cursor: pointer;
+  }
+  .navbar button:disabled { opacity: .3; cursor: default; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <span class="brand">[&bull;_&bull;] claude code teams &mdash; workshop</span>
+  <span class="os-switch" id="osSwitch" hidden>
+    <button type="button" data-os="mac">macOS</button>
+    <button type="button" data-os="win">Windows</button>
+  </span>
+</header>
+
+<main id="deck">
+
+  <!-- 1: Title (all) -->
+  <section class="slide" data-os="all">
+    <div class="robots" aria-hidden="true"> \ /    \ /    \ /    \ /
+[&bull;_&bull;]  [&bull;_&bull;]  [&bull;_&bull;]  [&bull;_&bull;]
+ /|\    /|\    /|\    /|\</div>
+    <h1>Claude Code Teams</h1>
+    <p class="dim">Build your own team of AI agents tonight &mdash; reachable from your phone.</p>
+    <p class="dim">Use the &rarr; button below (or your right arrow key) to move forward.</p>
+  </section>
+
+  <!-- 2: OS picker (all) -->
+  <section class="slide" data-os="all">
+    <h2>First: what kind of laptop are you on?</h2>
+    <p class="dim">This page remembers your choice and your place &mdash; even if you close it or reboot. You can switch later from the top-right corner.</p>
+    <div class="pickers">
+      <button type="button" class="pick" data-os="mac">&#63743; macOS</button>
+      <button type="button" class="pick" data-os="win">&#8862; Windows</button>
+    </div>
+  </section>
+
+  <!-- Slides 3-11 added in Tasks 2 and 3 -->
+
+</main>
+
+<footer class="navbar">
+  <button type="button" id="prev" aria-label="Previous slide">&larr;</button>
+  <span id="counter" aria-live="polite">1 / 2</span>
+  <button type="button" id="next" aria-label="Next slide">&rarr;</button>
+</footer>
+
+<script>
+(function () {
+  var OS_KEY = 'cct-workshop-os';
+  var SLIDE_KEY = 'cct-workshop-slide';
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var os = null;
+  var current = 0;
+
+  try { os = localStorage.getItem(OS_KEY); } catch (e) {}
+  if (os !== 'mac' && os !== 'win') os = null;
+
+  // Position: URL hash wins (1-based), else localStorage, else 0.
+  var fromHash = parseInt((location.hash || '').slice(1), 10);
+  if (!isNaN(fromHash) && fromHash > 0) {
+    current = fromHash - 1;
+  } else {
+    try { current = parseInt(localStorage.getItem(SLIDE_KEY) || '0', 10) || 0; } catch (e) {}
+  }
+
+  function activeSlides() {
+    if (!os) return slides.slice(0, 2); // title + picker until OS chosen
+    return slides.filter(function (s) {
+      var t = s.getAttribute('data-os');
+      return t === 'all' || t === os;
+    });
+  }
+
+  function render() {
+    var active = activeSlides();
+    if (current > active.length - 1) current = active.length - 1;
+    if (current < 0) current = 0;
+    slides.forEach(function (s) { s.classList.remove('current'); });
+    active[current].classList.add('current');
+    document.getElementById('counter').textContent = (current + 1) + ' / ' + active.length;
+    document.getElementById('prev').disabled = (current === 0);
+    document.getElementById('next').disabled = (current === active.length - 1);
+    var sw = document.getElementById('osSwitch');
+    sw.hidden = !os;
+    Array.prototype.forEach.call(sw.querySelectorAll('button'), function (b) {
+      b.classList.toggle('on', b.getAttribute('data-os') === os);
+    });
+    try {
+      localStorage.setItem(SLIDE_KEY, String(current));
+      if (os) localStorage.setItem(OS_KEY, os);
+    } catch (e) {}
+    try { history.replaceState(null, '', '#' + (current + 1)); } catch (e) {}
+  }
+
+  function next() { if (current < activeSlides().length - 1) { current++; render(); } }
+  function prev() { if (current > 0) { current--; render(); } }
+
+  document.getElementById('next').addEventListener('click', next);
+  document.getElementById('prev').addEventListener('click', prev);
+
+  document.addEventListener('keydown', function (e) {
+    if (e.target && e.target.tagName === 'BUTTON' && (e.key === ' ' || e.key === 'Enter')) return;
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); next(); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); prev(); }
+  });
+
+  // OS picker (slide 2): set OS and advance past the picker.
+  Array.prototype.forEach.call(document.querySelectorAll('.pick'), function (b) {
+    b.addEventListener('click', function () {
+      os = b.getAttribute('data-os');
+      current += 1;
+      render();
+    });
+  });
+
+  // Top-right OS switch: change track, keep position (render() clamps).
+  Array.prototype.forEach.call(document.querySelectorAll('#osSwitch button'), function (b) {
+    b.addEventListener('click', function () {
+      os = b.getAttribute('data-os');
+      render();
+    });
+  });
+
+  // Copy buttons (delegated; works for slides added later).
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('.copy') : null;
+    if (!btn) return;
+    var code = btn.parentElement.querySelector('code');
+    if (!code) return;
+    var text = code.innerText.replace(/\n$/, '');
+    function flash(label, ok) {
+      btn.textContent = label;
+      btn.classList.toggle('ok', ok);
+      setTimeout(function () { btn.textContent = 'copy'; btn.classList.remove('ok'); }, 2000);
+    }
+    function done() { flash('copied ✓', true); }
+    function fail() { flash('copy failed', false); }
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (err) {}
+      document.body.removeChild(ta);
+      return ok;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallback() ? done() : fail(); });
+    } else { fallback() ? done() : fail(); }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

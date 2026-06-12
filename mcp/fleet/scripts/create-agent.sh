@@ -89,17 +89,6 @@ cat > "$AGENT_DIR/.claude/settings.local.json" << EOF
         ]
       }
     ],
-    "PreCompact": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bun $PROJECT_ROOT/hooks/reclaude-steer.ts pre-compact",
-            "timeout": 30
-          }
-        ]
-      }
-    ],
     "SessionStart": [
       {
         "matcher": "compact",

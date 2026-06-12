@@ -95,34 +95,35 @@ This is one layer in a defense-in-depth stack for reply-channel routing:
 
 ## reclaude-steer.ts
 
-PreCompact + SessionStart hooks that steer the model across a context
-compaction. Part of reclaude (the recall + llm-wiki memory system bundled into
-the fleet MCP). Pure static-text emit — it does NOT index, because the fleet
-`recall` tool self-freshens (it incrementally indexes on every search).
+SessionStart post-compaction recovery hook. Part of reclaude (the recall +
+llm-wiki memory system bundled into the fleet MCP). Pure static-text emit — it
+does NOT index, because the fleet `recall` tool self-freshens (it incrementally
+indexes on every search).
 
-- **PreCompact** (`pre-compact`) — fires just before the context is summarized.
-  Injects a reminder to preserve verbatim the current task goal, every decision
-  and rejected alternative, exact file paths touched, exact commands that
-  worked, and any unresolved errors. Stops the summary from flattening
-  hard-won state into vague prose.
 - **SessionStart** (`post-compact`, `matcher: "compact"`) — fires when a session
   resumes right after a compaction. Injects recovery guidance: re-read
   `.claude/active-task.md`, re-read relevant auto-memory, and use the fleet
   `recall` tool to recover anything the summary dropped.
 
+**No PreCompact hook.** This Claude Code build's hook output schema has no
+PreCompact variant — `additionalContext` is only accepted for
+UserPromptSubmit/PostToolUse/PostToolBatch/Stop. A PreCompact emit therefore
+fails validation (`(root): Invalid input`) on every compaction for zero benefit,
+so `pre-compact` is a deliberate no-op (kept only so a not-yet-restarted agent
+still wired to it errors harmlessly). Continuity across a compaction is carried
+by the journal (`.claude/active-task.md`) plus this recovery hook — not by
+steering the summary.
+
 A hook must never break a session, so this always exits 0 and stays silent on
-any error. It emits both the documented `hookSpecificOutput` shape and a
-top-level `additionalContext` field, so it works whichever shape a given Claude
-Code build reads.
+any error. It emits only the documented
+`hookSpecificOutput: { hookEventName, additionalContext }` shape (a top-level
+`additionalContext` is rejected by the hook root schema).
 
 ### Install per agent
 
 ```json
 {
   "hooks": {
-    "PreCompact": [
-      { "hooks": [ { "type": "command", "command": "bun <absolute-path>/reclaude-steer.ts pre-compact", "timeout": 30 } ] }
-    ],
     "SessionStart": [
       { "matcher": "compact", "hooks": [ { "type": "command", "command": "bun <absolute-path>/reclaude-steer.ts post-compact", "timeout": 30 } ] }
     ]
@@ -133,18 +134,16 @@ Code build reads.
 ### Testing
 
 ```bash
-# PreCompact — emits the preservation steering as additionalContext
-echo '{}' | bun reclaude-steer.ts pre-compact
-
 # SessionStart (post-compaction) — emits the recovery steering
 echo '{}' | bun reclaude-steer.ts post-compact
 
-# Unknown/no subcommand — silent, exit 0
+# pre-compact and unknown/no subcommand — silent, exit 0
+echo '{}' | bun reclaude-steer.ts pre-compact
 echo '{}' | bun reclaude-steer.ts
 ```
 
 ## Files
 
 - `channel-reply-reminder.ts` — channel reply-routing reminder hook (Bun, stdlib only).
-- `reclaude-steer.ts` — reclaude PreCompact/SessionStart context-steering hook (Bun, stdlib only).
+- `reclaude-steer.ts` — reclaude SessionStart post-compaction recovery hook (Bun, stdlib only).
 - `README.md` — this file.

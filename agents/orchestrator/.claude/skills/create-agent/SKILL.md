@@ -78,17 +78,6 @@ You are <Name>, a <role>. Persistent agent on the host machine, reachable via Sl
         ]
       }
     ],
-    "PreCompact": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bun PROJECT_ROOT/hooks/reclaude-steer.ts pre-compact",
-            "timeout": 30
-          }
-        ]
-      }
-    ],
     "SessionStart": [
       {
         "matcher": "compact",
@@ -108,7 +97,7 @@ You are <Name>, a <role>. Persistent agent on the host machine, reachable via Sl
 Replace `PROJECT_ROOT` with the actual installation path.
 
 - `cleanupPeriodDays: 3650` keeps Claude Code from deleting old session transcripts for 10 years, so the fleet `recall` tool can full-text search the agent's whole history.
-- The **PreCompact** hook injects steering so context compactions preserve verbatim state; the **SessionStart** (`matcher: "compact"`) hook injects post-compaction recovery guidance. Both are reclaude's `reclaude-steer.ts`.
+- The **SessionStart** (`matcher: "compact"`) hook injects post-compaction recovery guidance (reclaude's `reclaude-steer.ts`). There is intentionally no PreCompact hook — this harness build's hook schema has no PreCompact variant for `additionalContext`, so a PreCompact steering hook only fails validation. Continuity is carried by `.claude/active-task.md` + this recovery hook.
 
 > **Tip:** `fleet:create_agent` (which runs `mcp/fleet/scripts/create-agent.sh`) writes this exact `settings.local.json`, both reclaude skills (Step 4b), and the `.mcp.json` automatically. These manual steps are the fallback / reference for what that script produces.
 

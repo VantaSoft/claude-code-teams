@@ -10,7 +10,7 @@ A template for running persistent Claude Code agents as a team, reachable via th
 
 Telegram, iMessage, and Discord ride on first-party Claude Code plugins. Slack is a custom MCP server shipped with this repo. You can run any combination — agents can be on one channel, several, or all of them simultaneously.
 
-Each agent runs in a tmux session with its own identity, memory, docs, and messaging credentials. Agents share MCP servers for things like Gmail, Calendar, Drive, and Slack. Recurring tasks run via OS-level crontab that pokes each agent's session on a schedule.
+Each agent runs in a tmux session with its own identity, memory, docs, and messaging credentials. Agents share MCP servers for things like Gmail, Calendar, Drive, and Slack. Recurring tasks run via OS-level crontab that pokes each agent's session on a routine.
 
 ## Quick Start
 
@@ -34,7 +34,7 @@ The orchestrator will install `tmux` and `node` for you on first launch if they'
 ### Where to Run It
 
 We recommend a **Mac Mini** (or any always-on home server). A **cloud VM** (EC2, DigitalOcean, etc.) works fine too. The key requirements are:
-- Always-on — agents need to stay running to receive inbound messages and fire scheduled tasks
+- Always-on — agents need to stay running to receive inbound messages and fire their routines
 - Persistent storage — agent memory, channel configs, OAuth tokens live on disk
 - You can SSH in for occasional maintenance
 
@@ -47,8 +47,8 @@ We recommend a **Mac Mini** (or any always-on home server). A **cloud VM** (EC2,
   - Telegram, iMessage, Discord — via Claude Code's first-party plugins
   - Slack — via the included `mcp/slack-channel` MCP server (Socket Mode + WebClient, with auto-react progress indicator)
 - **Google Workspace MCP server** — Gmail, Calendar, Drive tools (read + write)
-- **Schedules system** — Per-task `.md` files with cron frontmatter, synced to OS crontab (email triage, briefings, monitoring)
-- **Fleet MCP** — Orchestration primitives available to every agent as MCP tools: start, compact, message, context-check, agent-status, list-mcps, sync-schedules, create-agent
+- **Routines system** — Per-task `.md` files with cron frontmatter, synced to OS crontab (email triage, briefings, monitoring)
+- **Fleet MCP** — Orchestration primitives available to every agent as MCP tools: start, compact, message, context-check, agent-status, list-mcps, sync-routines, create-agent
 
 ## Architecture
 
@@ -59,7 +59,7 @@ claude-code-teams/          # The install directory
 │   └── orchestrator/      # Chief of staff (reference agent)
 │       ├── CLAUDE.md
 │       ├── tasks.md
-│       ├── schedules/      # One .md per recurring task, with cron frontmatter
+│       ├── routines/      # One .md per recurring task, with cron frontmatter
 │       ├── docs/
 │       ├── memory/
 │       ├── scripts/        # Orchestrator-specific tooling
@@ -105,14 +105,14 @@ You shouldn't need to run scripts manually — the orchestrator handles orchestr
 
 ## Back Up Your Team
 
-Your agent team accumulates state over time: CLAUDE.md files, schedules, agent-specific docs, memory files, learned triage rules. **Fork this repo** and push your team's state to your fork regularly for:
+Your agent team accumulates state over time: CLAUDE.md files, routines, agent-specific docs, memory files, learned triage rules. **Fork this repo** and push your team's state to your fork regularly for:
 
 - **Disaster recovery** if your host crashes
 - **Version history** to see how your agents evolved
 - **Cross-device consistency** to spin up your team on a new host
 - **Upstream updates** to pull template improvements into your fork
 
-Ask your orchestrator to set up a nightly `git push` schedule.
+Ask your orchestrator to set up a nightly `git push` routine.
 
 ## License
 

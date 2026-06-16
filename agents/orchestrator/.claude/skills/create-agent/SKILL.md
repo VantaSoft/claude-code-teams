@@ -23,7 +23,7 @@ Create `PROJECT_ROOT/agents/<name>/` with:
 - `CLAUDE.md` - agent identity and scope
 - `memory/MEMORY.md` - empty memory index
 - `docs/` - reference material
-- `schedules/` - recurring tasks
+- `routines/` - recurring tasks
 - `.claude/settings.local.json` - agent-specific settings
 - `.mcp.json` - MCP server configuration
 
@@ -209,9 +209,9 @@ fleet:restart_agent(<name>, ["slack"])
 
 Or with Telegram: `["slack", "telegram"]`
 
-## Step 10: Sync schedules
+## Step 10: Sync routines
 
-If the agent has any schedule files, run `fleet:sync_schedules`.
+If the agent has any routine files, run `fleet:sync_routines`.
 
 ## Step 11: Verify
 

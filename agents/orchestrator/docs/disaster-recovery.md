@@ -53,7 +53,7 @@ Message each bot on Telegram to confirm they respond.
 | Google OAuth tokens | `~/.config/google-workspace-mcp/` | Yes (on disk) |
 | MCP server source | `PROJECT_ROOT/mcp/` (git tracked) | Yes |
 | Bot tokens (.env) | `~/.claude/channels/telegram-*/.env` | Yes (on disk, not git tracked) |
-| Crontab (schedules) | user crontab | Yes |
+| Crontab (routines) | user crontab | Yes |
 
 ## What We Lose
 

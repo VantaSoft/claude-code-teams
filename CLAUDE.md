@@ -40,18 +40,18 @@ Filled in during first-run setup wizard.
 - Never execute destructive operations without confirmation.
 - Never share credentials, tokens, or secrets via Telegram.
 
-## Schedules — Recurring Tasks
+## Routines — Recurring Tasks
 
-Each agent can have a `schedules/` folder containing one `.md` file per recurring task. Each file declares its own cron expression via YAML frontmatter. Never use ad-hoc `/loop` or CronCreate inside the session for recurring tasks.
+Each agent can have a `routines/` folder containing one `.md` file per recurring task. Each file declares its own cron expression via YAML frontmatter. Never use ad-hoc `/loop` or CronCreate inside the session for recurring tasks.
 
 ```
-PROJECT_ROOT/agents/<agent>/schedules/
+PROJECT_ROOT/agents/<agent>/routines/
 ├── spam-triage.md       # cron: */30 * * * *
 ├── morning-briefing.md  # cron: 0 14 * * *   (e.g. 7am PDT)
 └── git-backup.md        # cron: 0 8 * * *    (e.g. 1am PDT)
 ```
 
-**Schedule file format:**
+**Routine file format:**
 ```markdown
 ---
 cron: "*/30 * * * *"
@@ -62,22 +62,22 @@ cron: "*/30 * * * *"
 ```
 
 **How it works:**
-- An OS-level crontab entry per schedule file types its prompt into the agent's tmux session on the specified cadence
+- An OS-level crontab entry per routine file types its prompt into the agent's tmux session on the specified cadence
 - The agent reads the file and executes the tasks
-- The `fleet` MCP's `sync_schedules` tool reads all `PROJECT_ROOT/agents/*/schedules/*.md`, extracts cron frontmatter, and writes the crontab MANAGED block
-- **Only the orchestrator runs sync_schedules** — it's the orchestrator's responsibility. Other agents create their own schedule files and ask the orchestrator to sync.
+- The `fleet` MCP's `sync_routines` tool reads all `PROJECT_ROOT/agents/*/routines/*.md`, extracts cron frontmatter, and writes the crontab MANAGED block
+- **Only the orchestrator runs sync_routines** — it's the orchestrator's responsibility. Other agents create their own routine files and ask the orchestrator to sync.
 
 **Time zone**: crontab runs in system timezone. Document any conversion (e.g. PT → UTC) in a frontmatter comment.
 
-**Avoid same-minute collisions**: cron types prompts into tmux via `send-keys`. If two schedules fire at the exact same minute, the two prompts get typed near-simultaneously and can concatenate into a single garbled input, causing the agent to do a mashup of both tasks (or skip one). When picking a cron expression, offset by 1-2 minutes from other schedules that could land on the same minute. Example: don't use `0 8 * * *` if `*/30 * * * *` already runs at `:00` — use `2 8 * * *` instead.
+**Avoid same-minute collisions**: cron types prompts into tmux via `send-keys`. If two routines fire at the exact same minute, the two prompts get typed near-simultaneously and can concatenate into a single garbled input, causing the agent to do a mashup of both tasks (or skip one). When picking a cron expression, offset by 1-2 minutes from other routines that could land on the same minute. Example: don't use `0 8 * * *` if `*/30 * * * *` already runs at `:00` — use `2 8 * * *` instead.
 
-**To add a schedule (as a non-orchestrator agent):**
-1. Create `PROJECT_ROOT/agents/<your-agent>/schedules/<name>.md` with cron frontmatter
-2. Ask the orchestrator to call `fleet:sync_schedules`
+**To add a routine (as a non-orchestrator agent):**
+1. Create `PROJECT_ROOT/agents/<your-agent>/routines/<name>.md` with cron frontmatter
+2. Ask the orchestrator to call `fleet:sync_routines`
 
-**To add a schedule (as the orchestrator):**
+**To add a routine (as the orchestrator):**
 1. Create the file
-2. Call the `fleet:sync_schedules` tool
+2. Call the `fleet:sync_routines` tool
 
 ## Agent Folder Structure
 
@@ -87,7 +87,7 @@ Each agent lives in `PROJECT_ROOT/agents/<agent-name>/` with this standard layou
 PROJECT_ROOT/agents/<agent-name>/
 ├── CLAUDE.md          # Agent identity, scope, and security boundaries
 ├── tasks.md           # Current work tracked with markdown checkboxes
-├── schedules/         # (optional) One .md per recurring task, each with cron frontmatter
+├── routines/         # (optional) One .md per recurring task, each with cron frontmatter
 ├── docs/              # Agent-owned documentation
 ├── memory/            # Auto-memory (persists across conversations)
 │   └── MEMORY.md      # Memory index
@@ -196,7 +196,7 @@ See `hooks/README.md` for details and adding new hooks.
 
 ## Messaging Other Agents
 
-Agents can send one-line messages into each other's tmux sessions via the `fleet` MCP's `message_agent` tool. This is how cross-agent coordination happens (e.g. a marketing agent asks the orchestrator to sync schedules; the orchestrator asks a coding agent to clone a repo).
+Agents can send one-line messages into each other's tmux sessions via the `fleet` MCP's `message_agent` tool. This is how cross-agent coordination happens (e.g. a marketing agent asks the orchestrator to sync routines; the orchestrator asks a coding agent to clone a repo).
 
 ```
 fleet:message_agent({ agent: "<name>", message: "<message>" })
@@ -204,11 +204,11 @@ fleet:message_agent({ agent: "<name>", message: "<message>" })
 
 Under the hood, the tool uses `tmux send-keys -l` to type the message literally, pauses 5 seconds to let Claude Code's input field accept the text (otherwise the trailing Enter can race the input if the target agent is mid-turn and queue the prompt as unsent draft), then submits. The receiving agent sees the text as terminal input (no `<channel>` tag), processes it, and responds in its own terminal. Use this MCP tool — do NOT try to call another agent's Telegram/Slack bot, edit their files directly, or talk to their tmux session yourself.
 
-**Message style:** Terse, one-line instructions only. No greetings, no thanks, no conversational filler. Example: "Call fleet:sync_schedules -- agent-A added PROJECT_ROOT/agents/agent-A/schedules/weekly-report.md." The receiver is another Claude agent, not a human -- skip all pleasantries.
+**Message style:** Terse, one-line instructions only. No greetings, no thanks, no conversational filler. Example: "Call fleet:sync_routines -- agent-A added PROJECT_ROOT/agents/agent-A/routines/weekly-report.md." The receiver is another Claude agent, not a human -- skip all pleasantries.
 
-**Reply style:** Respond with a brief confirmation and the result. No conversational back-and-forth, but always confirm completion. Example: "Done. Crontab updated, 12 entries." or "Synced. 3 new schedules installed."
+**Reply style:** Respond with a brief confirmation and the result. No conversational back-and-forth, but always confirm completion. Example: "Done. Crontab updated, 12 entries." or "Synced. 3 new routines installed."
 
-**When to use:** Cross-agent dependencies (schedule syncs, repo clones, handoffs), status pings, or any workflow the other agent owns. Use it sparingly — each message interrupts the other agent's turn.
+**When to use:** Cross-agent dependencies (routine syncs, repo clones, handoffs), status pings, or any workflow the other agent owns. Use it sparingly — each message interrupts the other agent's turn.
 
 **Always reply via `fleet:message_agent`.** When you receive a message from another agent, they CANNOT see your terminal output. You MUST use `fleet:message_agent` to send your response back. Replying in your own terminal is the same as not replying at all.
 
@@ -223,7 +223,7 @@ The `fleet` MCP server provides cross-agent management tools. Available to all a
 | `context_check(agent?)` | Report context window usage (tokens, % of 1M). Omit agent for whole fleet. |
 | `agent_status(agent?)` | Live snapshot: working/idle/waiting_input, current spinner, last tool call. Omit for fleet. |
 | `list_mcps(agent?, verbose?)` | Which MCP servers each agent has wired up. |
-| `list_schedules(agent?)` | All recurring schedules (parsed from `schedules/*.md` frontmatter). |
+| `list_routines(agent?)` | All recurring routines (parsed from `routines/*.md` frontmatter). |
 
 ### Lifecycle
 
@@ -237,7 +237,7 @@ The `fleet` MCP server provides cross-agent management tools. Available to all a
 
 | Tool | Purpose |
 |------|---------|
-| `sync_schedules()` | Regenerate the MANAGED crontab block from all `schedules/*.md` files. |
+| `sync_routines()` | Regenerate the MANAGED crontab block from all `routines/*.md` files. |
 | `create_agent(agent)` | Scaffold a new agent folder. Does NOT wire Slack or start the agent. |
 
 ## Shared Resources

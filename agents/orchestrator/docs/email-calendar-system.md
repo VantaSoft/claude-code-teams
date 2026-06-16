@@ -14,9 +14,9 @@ node dist/setup.js <account-name>
 
 Common account names: `default`, `work`, `personal`, or by company name.
 
-## Schedule Files
+## Routine Files
 
-Create one `.md` file per recurring task under `PROJECT_ROOT/agents/orchestrator/schedules/`. Each file has YAML frontmatter with the cron cadence. Call the `fleet:sync_schedules` MCP tool after editing.
+Create one `.md` file per recurring task under `PROJECT_ROOT/agents/orchestrator/routines/`. Each file has YAML frontmatter with the cron cadence. Call the `fleet:sync_routines` MCP tool after editing.
 
 ### Example: spam-triage.md (every 30 min)
 
@@ -77,4 +77,4 @@ Rules improve over time:
 - Principal says "you should have flagged this" → add sender/pattern to Needs Attention section
 - Principal confirms spam → add domain to known spam senders
 
-All rules live in the schedule files themselves. Edit the files directly — no restart or sync needed unless the cron cadence changes.
+All rules live in the routine files themselves. Edit the files directly — no restart or sync needed unless the cron cadence changes.

@@ -175,10 +175,17 @@
   .chev.hide{opacity:0;pointer-events:none}
 
   @media (max-width:880px){
-    .split,.agent{grid-template-columns:1fr;gap:1.4rem}
-    .house-col,.ava-col{display:none}
+    .split,.agent{grid-template-columns:1fr;gap:1.2rem}
+    .house-col{display:none}
     .copy{max-width:none}
     .agent{max-width:none}
+    /* chevrons are fixed to the edges and overlap single-column content on
+       narrow screens — hide them; swipe + the keyboard arrows still navigate */
+    .chev{display:none}
+    /* keep the agent avatar (centered, on top) but shrink it for mobile */
+    .ava{width:128px;height:128px}
+    .meta-row{grid-template-columns:1fr;gap:1.2rem}
+    .meta-div{display:none}
   }
 </style>
 </head>

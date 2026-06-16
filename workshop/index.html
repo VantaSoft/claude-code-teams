@@ -125,7 +125,7 @@
     <p>1. Open <b>PowerShell as Administrator</b> (right-click the Start button &rarr; <b>Terminal (Admin)</b>, or <b>Windows PowerShell (Admin)</b> on Windows 10), then run:</p>
     <div class="cmd"><pre><code>wsl --install</code></pre><button type="button" class="copy">copy</button></div>
     <p>2. When it finishes, <b>reboot your laptop</b>. This page remembers where you left off &mdash; just come back to <b>cct.vantasoft.com/workshop</b>.</p>
-    <p>3. After the reboot, an <b>Ubuntu</b> window opens (or launch &ldquo;Ubuntu&rdquo; from the Start menu). Create a username and password when it asks.</p>
+    <p>3. After the reboot, open <b>Ubuntu</b> from the Start menu (it may also open on its own). Create a username and password when it asks.</p>
     <p class="dim">From here on, run every command in that Ubuntu window &mdash; not in PowerShell.</p>
   </section>
 
@@ -161,6 +161,8 @@
     <p class="skip">Does <code>claude --version</code> already print a version in Ubuntu? Skip ahead &rarr;</p>
     <p>In your <b>Ubuntu</b> window (not PowerShell), run:</p>
     <div class="cmd"><pre><code>curl -fsSL https://claude.ai/install.sh | bash</code></pre><button type="button" class="copy">copy</button></div>
+    <p>The installer puts <code>claude</code> in <code>~/.local/bin</code>, which is not on your PATH yet. Add it, then reload your shell:</p>
+    <div class="cmd"><pre><code>echo 'export PATH="$HOME/.local/bin:$PATH"' &gt;&gt; ~/.bashrc &amp;&amp; source ~/.bashrc</code></pre><button type="button" class="copy">copy</button></div>
     <p>Then start it once to log in &mdash; a browser window opens; sign in with your claude.ai account:</p>
     <div class="cmd"><pre><code>claude</code></pre><button type="button" class="copy">copy</button></div>
     <p class="dim">Logged in? Type <b>/exit</b> to leave &mdash; next step relaunches it as your team.</p>
